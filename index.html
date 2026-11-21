@@ -97,8 +97,20 @@
   </div>
   <select id="mode" class="hidden">
     <option value="solo">혼자 도전</option><option value="duel2">1:1 대결</option><option value="duel3">3인 대결</option>
-    <option value="fight">1:1 겨루기</option><option value="team2">2:2 팀전</option><option value="target">송판 격파</option>
+    <option value="fight">1:1 겨루기</option><option value="robot">로봇 대련</option><option value="team2">2:2 팀전</option><option value="target">송판 격파</option>
   </select>
+  <div id="robotField" class="hidden">
+    <h2><span class="n">+</span>누구랑 겨룰까요?</h2>
+    <div class="chips" id="oppChips">
+      <button class="chip" data-v="fight">👤 친구랑</button><button class="chip" data-v="robot">🤖 검무봇이랑</button>
+    </div>
+    <div id="robotLvBox" class="hidden" style="margin-top:10px">
+      <div class="chips" id="robotLvChips">
+        <button class="chip" data-v="1">쉬움</button><button class="chip" data-v="2">보통</button><button class="chip" data-v="3">어려움</button>
+      </div>
+      <select id="robotLv" class="hidden"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option></select>
+    </div>
+  </div>
   <div class="info" id="modeinfo"></div>
 
   <h2><span class="n">2</span>몇 초 동안?</h2>
@@ -267,6 +279,7 @@ const MODES = {
   duel2: { zones:2, names:['청','홍'], colors:['#3d8bff','#ff3b55'], info:'⚔️ 1:1 대결 — 왼쪽은 청, 오른쪽은 홍 자리예요. 서로 겹치지 않게 전신이 보이도록 서고, 더 많이 찬 사람이 이겨요.' },
   duel3: { zones:3, names:['청','홍','녹'], colors:['#3d8bff','#ff3b55','#2fbf8f'], info:'👥 3인 대결 — 왼쪽부터 청·홍·녹 자리예요. 가로 전체화면으로 멀리서 찍으면 세 명 모두 잘 잡혀요.' },
   fight: { zones:2, names:['청','홍'], colors:['#3d8bff','#ff3b55'], team:[0,1], dmg:[2,2], info:'🛡️ 1:1 겨루기(닿지 않게!) — 각자 자기 자리에서 발차기해요. 몸통 높이면 상대 체력 −2, 얼굴 높이까지 올라가면 −2 더(총 −4). 체력이 0이 되거나 시간이 끝나면 체력이 많은 쪽이 이겨요. 실제로 차서 맞히면 절대 안 돼요.' },
+  robot: { zones:1, names:['나'], colors:['#3d8bff'], team:[0], dmg:[2,2], info:'🤖 로봇 대련 — 혼자 화면에 서면 반대편에 검무봇이 나타나요. 허리 위로 차면 로봇 체력 −2(얼굴 높이는 −4). 로봇이 ❗ 신호를 보내면 곧 발차기가 와요! 두 팔을 얼굴 앞으로 올려 막거나, 옆으로 피하거나, 몸을 숙이세요. 로봇이 차고 난 뒤 빈틈에 차면 반격 보너스 +2!' },
   team2: { zones:4, names:['청1','청2','홍1','홍2'], colors:['#3d8bff','#7fb6ff','#ff3b55','#ff8b9b'], team:[0,0,1,1], dmg:[1,1], info:'🤝 2:2 팀전(닿지 않게!) — 화면을 4칸으로 나눠 왼쪽 두 칸은 청팀, 오른쪽 두 칸은 홍팀이에요. 팀 체력 100을 함께 써요. 몸통 높이 −1, 얼굴 높이 −1 더(총 −2). 가로 전체화면으로 4명이 다 보이게 멀리서 찍어 주세요.' },
   target:{ zones:1, names:['나'], colors:['#ff5a6e'], info:'🪵 송판 격파 — 양옆에서 송판이 날아와요! 화면 속 내 발로 송판을 맞히면 두 동강 나요. 1~5단은 송판 속도예요. 혼자 서고 주변 공간을 넓게 비워 두세요. (화면 속 그림이라 실제로 찰 물건은 없어요)' },
 };
@@ -288,26 +301,34 @@ function resetZones() {
     name, color:m.colors[i], count:0, left:0, right:0, energy:100, flash:0, present:false, tr:K.newTracker(),
   }));
   S.targets = []; S.parts = []; S.bursts = []; S.breaks = []; S.hits = 0; S.result = ''; S.end = null;
-  S.teams = m.team ? [{ name:'청', color:'#2f8cff', energy:100, flash:0 }, { name:'홍', color:'#ff4d5e', energy:100, flash:0 }] : null;
+  S.teams = m.team ? (S.mode === 'robot'
+    ? [{ name:'나', color:'#3d8bff', energy:100, flash:0 }, { name:'검무봇', color:'#ff3b55', energy:100, flash:0 }]
+    : [{ name:'청', color:'#2f8cff', energy:100, flash:0 }, { name:'홍', color:'#ff4d5e', energy:100, flash:0 }]) : null;
+  S.robot = S.mode === 'robot' ? { state:'idle', next:0, x:null, t0:0, hitAt:-1e9 } : null;
+  S.rs = { block:0, dodge:0, hit:0, counter:0 }; S.hurtAt = -1e9;
 }
 function applySettings() {
-  S.mode = $('mode').value; S.duration = +$('dur').value; S.level = +$('level').value;
+  S.mode = $('mode').value; S.duration = +$('dur').value; S.level = +$('level').value; S.robotLv = +$('robotLv').value;
   $('levelField').classList.toggle('hidden', S.mode !== 'target'); markOn();
   $('modeinfo').textContent = MODES[S.mode].info;
   $('startBtn').textContent = '▶ 시작 ' + (S.duration === 60 ? '1분' : S.duration + '초');
   if (S.phase !== 'run' && S.phase !== 'count') { S.phase = 'idle'; S.timeLeft = S.duration; resetZones(); }
   showBest();
 }
-['mode','dur','level'].forEach(id => $(id).addEventListener('change', applySettings));
+['mode','dur','level','robotLv'].forEach(id => $(id).addEventListener('change', applySettings));
 function wire(box, sel, attr) {
   document.querySelectorAll(`#${box} [data-${attr}]`).forEach(b => b.addEventListener('click', () => {
     if (S.phase === 'run' || S.phase === 'count') return;
     $(sel).value = b.dataset[attr]; $(sel).dispatchEvent(new Event('change'));
   }));
 }
-wire('modeTiles', 'mode', 'mode'); wire('durChips', 'dur', 'v'); wire('levelChips', 'level', 'v');
+wire('modeTiles', 'mode', 'mode'); wire('durChips', 'dur', 'v'); wire('levelChips', 'level', 'v'); wire('oppChips', 'mode', 'v'); wire('robotLvChips', 'robotLv', 'v');
 function markOn() {
-  document.querySelectorAll('#modeTiles [data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === S.mode));
+  document.querySelectorAll('#modeTiles [data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === S.mode || (b.dataset.mode === 'fight' && S.mode === 'robot')));
+  document.querySelectorAll('#oppChips [data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === S.mode));
+  document.querySelectorAll('#robotLvChips [data-v]').forEach(b => b.classList.toggle('on', +b.dataset.v === S.robotLv));
+  $('robotField').classList.toggle('hidden', S.mode !== 'fight' && S.mode !== 'robot');
+  $('robotLvBox').classList.toggle('hidden', S.mode !== 'robot');
   document.querySelectorAll('#durChips [data-v]').forEach(b => b.classList.toggle('on', +b.dataset.v === S.duration));
   document.querySelectorAll('#levelChips [data-v]').forEach(b => b.classList.toggle('on', +b.dataset.v === S.level));
 }
@@ -433,6 +454,12 @@ function finish(reason) {
   } else if (S.mode === 'target') {
     text = `종료! 격파한 송판 ${S.hits}장`;
     if (reason !== 'stop' && S.hits > getBest()) { setBest(S.hits); text += ' 🏆 신기록!'; }
+  } else if (S.mode === 'robot') {
+    const [a, b] = S.teams, rs = S.rs;
+    const win = a.energy > b.energy, draw = a.energy === b.energy;
+    text = `종료! ${draw ? '무승부' : win ? '승리! 검무봇을 이겼어요' : '검무봇 승리 · 다시 도전!'} (나 ${a.energy} : 검무봇 ${b.energy}) · 막기 ${rs.block} · 피하기 ${rs.dodge} · 반격 ${rs.counter} · 맞음 ${rs.hit}`;
+    S.end = { big: draw ? '무승부!' : win ? '승리!' : '검무봇 승리', color: draw ? '#f5efe3' : win ? '#3d8bff' : '#ff3b55',
+      sub: `막기 ${rs.block} · 피하기 ${rs.dodge} · 반격 ${rs.counter} · 맞음 ${rs.hit}` };
   } else if (S.teams) {
     const [a, b] = S.teams, w = a.energy === b.energy ? null : (a.energy > b.energy ? a : b);
     text = w ? `종료! ${w.name} 승리! (청 ${a.energy} : 홍 ${b.energy})` : `종료! 무승부 (${a.energy} : ${b.energy})`;
@@ -451,6 +478,62 @@ function finish(reason) {
 $('startBtn').addEventListener('click', startGame);
 $('stopBtn').addEventListener('click', () => finish('stop'));
 
+
+/* ---------- 🤖 로봇 대련 (검무봇) ---------- */
+const ROBOT_LV = {
+  1: { tell:1000, recover:950, gap:[3200, 4800], dmg:4, name:'쉬움' },
+  2: { tell:750,  recover:750, gap:[2300, 3600], dmg:5, name:'보통' },
+  3: { tell:520,  recover:560, gap:[1500, 2600], dmg:6, name:'어려움' },
+};
+function hipOf(lm) { return lm && K.vis(lm[23]) && K.vis(lm[24]) ? { x:(lm[23].x + lm[24].x) / 2, y:(lm[23].y + lm[24].y) / 2 } : null; }
+function robotUpdate(now, aspect) {
+  const R = S.robot; if (!R) return;
+  const lm = S.zones[0] && S.zones[0].lm;
+  // 아이 위치·키에 맞춰 로봇 자리 정하기
+  let pcx = 0.32, feet = 0.93, bh = 0.62;
+  const hp = hipOf(lm);
+  if (hp) {
+    pcx = hp.x;
+    const ys = [0, 27, 28, 31, 32].filter(i => K.vis(lm[i])).map(i => lm[i].y);
+    if (ys.length >= 2) { const top = Math.min(...ys) - 0.06, bot = Math.max(...ys); if (bot - top > 0.2) { bh = bot - top; feet = bot; } }
+  }
+  const dir = pcx < 0.5 ? 1 : -1;
+  const tx = Math.min(0.9, Math.max(0.1, pcx + dir * bh * 0.8 / aspect));
+  if (R.x == null) { R.x = tx; R.feet = feet; R.h = bh; }
+  R.x += (tx - R.x) * 0.06; R.feet += (feet - R.feet) * 0.1; R.h += (bh - R.h) * 0.1;
+  R.face = R.x > pcx ? -1 : 1;
+  if (S.phase !== 'run') { R.state = 'idle'; return; }
+  const L = ROBOT_LV[S.robotLv] || ROBOT_LV[2];
+  if (R.state === 'idle' && now >= R.next) { R.state = 'tell'; R.t0 = now; R.hip0 = hipOf(lm); beep(330, 0.14, 0.3, 'square'); }
+  else if (R.state === 'tell' && now - R.t0 >= L.tell) { R.state = 'kick'; R.t0 = now; R.resolved = false; }
+  else if (R.state === 'kick') {
+    if (!R.resolved && now - R.t0 >= 140) { R.resolved = true; robotStrike(now, lm, aspect, L); }
+    if (now - R.t0 >= 280) { R.state = 'recover'; R.t0 = now; }
+  }
+  else if (R.state === 'recover' && now - R.t0 >= L.recover) { R.state = 'idle'; R.next = now + L.gap[0] + Math.random() * (L.gap[1] - L.gap[0]); }
+}
+// 로봇 발차기가 닿는 순간: 막았나? 피했나?
+function robotStrike(now, lm, aspect, L) {
+  if (S.phase !== 'run') return;
+  const me = S.teams[0], z = S.zones[0], R = S.robot;
+  if (!lm) { flashMsg('화면 안으로 들어와요!', '#f5efe3'); return; }
+  const legLen = z.tr.legLen || 0.4;
+  let blocked = false, dodged = false;
+  if ([11, 12, 15, 16, 23, 24].every(i => K.vis(lm[i]))) {
+    const shY = (lm[11].y + lm[12].y) / 2, hipY = (lm[23].y + lm[24].y) / 2, lim = shY + (hipY - shY) * 0.3;
+    blocked = lm[15].y < lim && lm[16].y < lim;   // 두 손이 가슴 위(얼굴 앞)로
+  }
+  const h0 = R.hip0, h1 = hipOf(lm);
+  if (h0 && h1) dodged = Math.abs(h1.x - h0.x) * aspect > legLen * 0.3 || (h1.y - h0.y) > legLen * 0.18;  // 옆으로 피하기 / 숙이기
+  if (blocked) { S.rs.block++; flashMsg('막기!', '#3d8bff'); beep(1250, 0.08, 0.3); setTimeout(() => beep(1650, 0.08, 0.25), 70); S.guardAt = now; }
+  else if (dodged) { S.rs.dodge++; flashMsg('피했다!', '#5fe0b0'); beep(900, 0.1, 0.25, 'triangle'); }
+  else {
+    S.rs.hit++; me.energy = Math.max(0, me.energy - L.dmg); me.flash = now; S.hurtAt = now;
+    flashMsg(`아야! −${L.dmg}`, '#ff3b55'); hitSound(true);
+    if (me.energy <= 0) finish('ko');
+  }
+}
+
 /* ---------- 발차기 인정 ---------- */
 function onEvent(zi, e, now) {
   if (S.phase !== 'run') return;
@@ -460,14 +543,18 @@ function onEvent(zi, e, now) {
     z.count++; if (e.side === 'L') z.left++; else z.right++;
     z.flash = now; hitSound(e.face);
     if (S.teams) {
-      const m = MODES[S.mode], opp = S.teams[1 - m.team[zi]], d = m.dmg[0] + (e.face ? m.dmg[1] : 0);
+      const m = MODES[S.mode], opp = S.teams[1 - m.team[zi]];
+      const counter = S.robot && S.robot.state === 'recover';
+      const d = m.dmg[0] + (e.face ? m.dmg[1] : 0) + (counter ? 2 : 0);
       opp.energy = Math.max(0, opp.energy - d); opp.flash = now;
-      if (e.face) flashMsg(`얼굴 공격! −${d}`, z.color);
+      if (S.robot) S.robot.hitAt = now;
+      if (counter) { S.rs.counter++; flashMsg(`반격 찬스! −${d}`, '#ffd23f'); }
+      else if (e.face) flashMsg(`얼굴 공격! −${d}`, z.color);
       if (opp.energy <= 0) finish('ko');
     }
   } else if (e.type === 'face' && S.teams) {
     const m = MODES[S.mode], opp = S.teams[1 - m.team[zi]];
-    opp.energy = Math.max(0, opp.energy - m.dmg[1]); opp.flash = now; hitSound(true);
+    opp.energy = Math.max(0, opp.energy - m.dmg[1]); opp.flash = now; hitSound(true); if (S.robot) S.robot.hitAt = now;
     flashMsg(`얼굴 높이! 추가 −${m.dmg[1]}`, z.color);
     if (opp.energy <= 0) finish('ko');
   }
@@ -535,13 +622,15 @@ function loop() {
     if (lm) K.step(z.tr, lm, aspect, now).forEach(e => onEvent(i, e, now));
   });
 
+  if (S.robot) robotUpdate(now, aspect);
   // 시간 진행
   if (S.phase === 'count') {
     const left = Math.ceil((S.countEnd - now) / 1000);
     if (left !== S.lastSpoken && left > 0) { S.lastSpoken = left; if (left < 3) beep(660); }
     if (now >= S.countEnd) { S.phase = 'run'; S.endAt = now + S.duration * 1000; S.nextSpawn = now + 500; S.lastSpoken = -1; beep(1046, 0.35, 0.35); flashMsg('시작!', '#ff5a6e');
       // 준비 중 올라가 있던 발은 내려야 다시 세도록
-      S.zones.forEach(z => { z.tr.L.up = z.tr.R.up = true; }); }
+      S.zones.forEach(z => { z.tr.L.up = z.tr.R.up = true; });
+      if (S.robot) { S.robot.state = 'idle'; S.robot.next = now + 2200; } }
   }
   if (S.phase === 'run') {
     S.timeLeft = Math.max(0, (S.endAt - now) / 1000);
@@ -627,7 +716,7 @@ function guideText() {
   if (S.phase === 'count') return '준비! 전신이 다 보이게 서세요';
   if (S.phase === 'done') return '끝! 다시 하려면 ▶ 시작';
   if (S.phase === 'run') return ({ solo:'허리 위로 차고, 발을 내렸다 다시!', duel2:'자기 자리(왼쪽·오른쪽)를 지켜요', duel3:'자기 칸을 지켜요',
-    fight:'닿지 않게! 자기 자리에서 발차기', team2:'닿지 않게! 자기 칸에서 발차기', target:'날아오는 송판을 발로 격파!' })[S.mode];
+    fight:'닿지 않게! 자기 자리에서 발차기', robot:'❗가 뜨면 두 팔 막기 · 옆으로 피하기 · 숙이기!', team2:'닿지 않게! 자기 칸에서 발차기', target:'날아오는 송판을 발로 격파!' })[S.mode];
   return landmarker ? '전신이 보이면 ▶ 시작' : '카메라를 켜 주세요';
 }
 function board(x, y, w, h, rot, part) {   // part: 0 전체, -1 왼쪽 반, 1 오른쪽 반
@@ -639,6 +728,88 @@ function board(x, y, w, h, rot, part) {   // part: 0 전체, -1 왼쪽 반, 1 �
   for (let k = -2; k <= 2; k++) { ctx.beginPath(); ctx.moveTo(x0, k * h * 0.16); ctx.bezierCurveTo(x0 + ww * 0.3, k * h * 0.16 - h * 0.06, x0 + ww * 0.7, k * h * 0.16 + h * 0.06, x0 + ww, k * h * 0.16); ctx.stroke(); }
   ctx.lineWidth = h * 0.06; ctx.strokeStyle = '#7a4a1e'; ctx.strokeRect(x0, -h / 2, ww, h);
   ctx.restore();
+}
+
+// 검무봇 그리기 (발 위치 X,Y / 키 s / 바라보는 방향 f)
+function drawRobot(now, W, H, u) {
+  const R = S.robot; if (!R || R.x == null) return;
+  const L = ROBOT_LV[S.robotLv] || ROBOT_LV[2];
+  const s = R.h * H, f = R.face, X = R.x * W, Y = R.feet * H;
+  const STEEL = '#cfc8bb', STEEL2 = '#9c9486', DARK = '#2a2723', RED = '#d8263f', EYE = '#5fe0ff';
+  // 다리 각도 (허벅지 a1: 아래에서 앞쪽으로, 무릎 접힘 b)
+  let a1 = -0.18, b = 0.1, lean = 0;
+  const ease = t => t < 0 ? 0 : t > 1 ? 1 : t * t * (3 - 2 * t);
+  if (R.state === 'tell') { const k = ease((now - R.t0) / L.tell); a1 = -0.18 + k * 1.75; b = 0.1 + k * 2.1; lean = -k * 0.12; }
+  else if (R.state === 'kick') { const k = ease((now - R.t0) / 140); a1 = 1.57 + k * 0.1; b = 2.2 * (1 - k); lean = -0.2; }
+  else if (R.state === 'recover') { const k = ease((now - R.t0) / (L.recover * 0.6)); a1 = 1.67 - k * 1.85; b = k * 0.1; lean = -0.2 * (1 - k); }
+  const hitK = Math.max(0, 1 - (now - R.hitAt) / 350);
+  lean += hitK * 0.25;   // 맞으면 뒤로 휘청
+  const bob = R.state === 'idle' ? Math.sin(now / 230) * s * 0.008 : 0;
+  ctx.save();
+  ctx.translate(X, Y); ctx.scale(f, 1);   // f=1 이면 오른쪽(+x)을 바라봄
+  // 그림자
+  ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.2, s * 0.03, 0, 0, 6.2832); ctx.fill();
+  const hipY = -s * 0.47 + bob, thigh = s * 0.235, shin = s * 0.235, lw = s * 0.075;
+  function leg(ang, bend, col, x0) {
+    const kx = x0 + Math.sin(ang) * thigh, ky = hipY + Math.cos(ang) * thigh;
+    const sa = ang - bend, fx = kx + Math.sin(sa) * shin, fy = ky + Math.cos(sa) * shin;
+    ctx.lineCap = 'round'; ctx.strokeStyle = col; ctx.lineWidth = lw;
+    ctx.beginPath(); ctx.moveTo(x0, hipY); ctx.lineTo(kx, ky); ctx.lineTo(fx, fy); ctx.stroke();
+    ctx.fillStyle = DARK; ctx.beginPath(); ctx.arc(kx, ky, lw * 0.62, 0, 6.2832); ctx.fill();          // 무릎 관절
+    ctx.save(); ctx.translate(fx, fy); ctx.rotate(-sa + Math.PI / 2 * (bend < 0.5 && ang > 1 ? 1 : 0));
+    ctx.fillStyle = DARK; rr(-lw * 0.5, -lw * 0.35, lw * 1.6, lw * 0.75, lw * 0.3); ctx.fill(); ctx.restore();  // 발
+    return { fx, fy };
+  }
+  ctx.save(); ctx.rotate(lean * 0.5);
+  leg(0.16, 0.08, STEEL2, s * 0.03);                           // 앞다리(받침)
+  const foot = leg(a1, b, STEEL, -s * 0.03);                   // 차는 다리
+  // 몸통
+  ctx.save(); ctx.translate(0, hipY); ctx.rotate(lean);
+  const tw = s * 0.27, th = s * 0.33;
+  ctx.fillStyle = DARK; rr(-tw * 0.42, -s * 0.03, tw * 0.84, s * 0.06, s * 0.02); ctx.fill();          // 골반
+  const g = ctx.createLinearGradient(-tw / 2, 0, tw / 2, 0); g.addColorStop(0, STEEL2); g.addColorStop(0.5, STEEL); g.addColorStop(1, STEEL2);
+  ctx.fillStyle = hitK > 0.6 ? '#fff' : g; rr(-tw / 2, -th, tw, th, s * 0.05); ctx.fill();
+  ctx.fillStyle = RED; ctx.fillRect(-tw / 2, -th * 0.32, tw, th * 0.12);                                 // 진홍 띠
+  ctx.fillStyle = DARK; ctx.fillRect(tw * 0.05, -th * 0.32, tw * 0.12, th * 0.32);                         // 띠 매듭
+  const core = R.state === 'tell' ? (Math.sin(now / 60) > 0 ? RED : '#ff8a99') : EYE;
+  ctx.fillStyle = core; ctx.shadowColor = core; ctx.shadowBlur = s * 0.04;
+  ctx.beginPath(); ctx.arc(tw * 0.08, -th * 0.68, s * 0.03, 0, 6.2832); ctx.fill(); ctx.shadowBlur = 0;   // 가슴 불빛
+  // 팔 (막는 자세)
+  ctx.strokeStyle = STEEL2; ctx.lineWidth = s * 0.06; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(tw * 0.35, -th * 0.9); ctx.lineTo(tw * 0.75, -th * 0.6); ctx.lineTo(tw * 0.95, -th * 1.05); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-tw * 0.35, -th * 0.9); ctx.lineTo(tw * 0.15, -th * 0.55); ctx.lineTo(tw * 0.55, -th * 0.95); ctx.stroke();
+  ctx.fillStyle = DARK; [[tw * 0.95, -th * 1.05], [tw * 0.55, -th * 0.95]].forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, s * 0.035, 0, 6.2832); ctx.fill(); });
+  // 머리
+  const hw = s * 0.2, hh = s * 0.17, hy = -th - hh - s * 0.015;
+  ctx.fillStyle = DARK; ctx.fillRect(-s * 0.03, -th - s * 0.02, s * 0.06, s * 0.03);                      // 목
+  ctx.fillStyle = hitK > 0.6 ? '#fff' : STEEL; rr(-hw / 2, hy, hw, hh, s * 0.045); ctx.fill();
+  ctx.fillStyle = DARK; rr(-hw * 0.2, hy + hh * 0.3, hw * 0.68, hh * 0.32, hh * 0.12); ctx.fill();         // 눈 가리개
+  const eyeC = R.state === 'tell' || R.state === 'kick' ? '#ff3b55' : EYE;
+  ctx.fillStyle = eyeC; ctx.shadowColor = eyeC; ctx.shadowBlur = s * 0.05;
+  ctx.fillRect(-hw * 0.12, hy + hh * 0.4, hw * 0.52, hh * 0.1); ctx.shadowBlur = 0;
+  ctx.strokeStyle = DARK; ctx.lineWidth = s * 0.012; ctx.beginPath(); ctx.moveTo(-hw * 0.2, hy); ctx.lineTo(-hw * 0.3, hy - s * 0.07); ctx.stroke();  // 안테나
+  ctx.fillStyle = RED; ctx.beginPath(); ctx.arc(-hw * 0.3, hy - s * 0.075, s * 0.016, 0, 6.2832); ctx.fill();
+  ctx.restore(); ctx.restore(); ctx.restore();
+  // 차는 발 끝 바람 효과
+  if (R.state === 'kick') {
+    const fx = X + foot.fx * f, fy = Y + foot.fy;
+    ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = u * 0.5;
+    for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(fx - f * u * (4 + i * 3), fy - u * (2 - i * 2)); ctx.lineTo(fx - f * u * (10 + i * 3), fy - u * (2 - i * 2)); ctx.stroke(); }
+    ctx.restore();
+  }
+  // 이름표 · 경고 신호
+  const topY = Math.max(Y - s * 1.08, u * 25);
+  ctx.font = `700 ${u * 2.6}px ${FN}`; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(245,239,227,.9)';
+  chipText(`🤖 검무봇 · ${L.name}`, X, topY - u * 3.6, u * 3.6, PAPER, 'center');
+  if (R.state === 'tell') {
+    const k = (now - R.t0) / L.tell, pulse = 1 + 0.15 * Math.sin(now / 50);
+    const ex = Math.min(W - u * 6, Math.max(u * 6, X - f * s * 0.3)), ey = Math.max(Y - s * 0.88, u * 30);   // 머리 옆(아이 반대쪽)
+    ctx.save(); ctx.translate(ex, ey); ctx.scale(pulse, pulse);
+    ctx.beginPath(); ctx.arc(0, 0, u * 4.2, 0, 6.2832); ctx.fillStyle = '#d8263f'; ctx.fill();
+    ctx.lineWidth = u * 0.6; ctx.strokeStyle = '#fff'; ctx.beginPath(); ctx.arc(0, 0, u * 4.2, -Math.PI / 2, -Math.PI / 2 + 6.2832 * (1 - k)); ctx.stroke();
+    ctx.font = `400 ${u * 5.5}px ${FT}`; ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle'; ctx.fillText('!', 0, u * 0.3); ctx.textBaseline = 'alphabetic';
+    ctx.restore();
+  }
 }
 function drawIdle() { ctx.fillStyle = '#0d0c0b'; ctx.fillRect(0, 0, cv.width, cv.height); }
 function draw(now, aspect, feet) {
@@ -670,6 +841,16 @@ function draw(now, aspect, feet) {
       ctx.fillStyle = 'rgba(245,239,227,.85)'; ctx.font = `700 ${u * 2.2}px ${FN}`; ctx.textAlign = 'left'; ctx.fillText('허리선', cx + u * 10.8, y + u * 0.8);
     }
   });
+  // 검무봇 + 맞았을 때 빨간 테두리 + 막았을 때 파란 방패
+  if (S.robot) {
+    drawRobot(now, W, H, u);
+    const hk = Math.max(0, 1 - (now - S.hurtAt) / 450);
+    if (hk > 0) { const vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75);
+      vg.addColorStop(0, 'rgba(216,38,63,0)'); vg.addColorStop(1, `rgba(216,38,63,${0.55 * hk})`); ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H); }
+    const gk = Math.max(0, 1 - (now - (S.guardAt || -1e9)) / 500), lm0 = S.zones[0] && S.zones[0].lm;
+    if (gk > 0 && lm0 && K.vis(lm0[0])) { ctx.save(); ctx.globalAlpha = gk; ctx.translate(lm0[0].x * W, lm0[0].y * H + u * 6);
+      shieldPath(-u * 7, -u * 7, u * 14, u * 16); ctx.fillStyle = 'rgba(61,139,255,.35)'; ctx.fill(); ctx.lineWidth = u * 0.7; ctx.strokeStyle = '#7fb6ff'; ctx.stroke(); ctx.restore(); }
+  }
   // 송판
   S.targets.forEach(t => board(t.x * W, t.y * H, t.r * H * 2.4, t.r * H * 1.25, t.rot, 0));
   S.breaks = S.breaks.filter(b => now - b.born < 700);
@@ -708,7 +889,7 @@ function draw(now, aspect, feet) {
     S.teams.forEach((tm, i) => {
       const x = i === 0 ? tcx - R - u * 3 - bw : tcx + R + u * 3;
       ctx.font = `400 ${u * 4}px ${FT}`; ctx.fillStyle = tm.color; ctx.textAlign = i === 0 ? 'right' : 'left';
-      ctx.fillText(`${tm.name}팀`, i === 0 ? x + bw : x, by - u * 1.3);
+      ctx.fillText(S.mode === 'robot' ? tm.name : `${tm.name}팀`, i === 0 ? x + bw : x, by - u * 1.3);
       ctx.fillStyle = PAPER; ctx.textAlign = i === 0 ? 'left' : 'right'; ctx.font = `400 ${u * 4}px ${FT}`;
       ctx.fillText(String(tm.energy), i === 0 ? x : x + bw, by - u * 1.3);
       hpBar(x, by, bw, bh, tm, i === 0, now);
@@ -726,7 +907,7 @@ function draw(now, aspect, feet) {
       return { cx, l: n === 1 ? '발차기' : z.name, v:z.count, unit:'번', c:z.color, f: now - z.flash < 140, z };
     });
   };
-  const sy = (n >= 3 || (S.teams && n === 2)) ? shieldY : u * 2.5;
+  const sy = (n >= 3 || S.teams) ? shieldY : u * 2.5;
   shieldsFor().forEach(s => {
     shield(s.cx, sy, sw, sh, s.l, String(s.v), s.unit, s.c, s.f);
     if (s.z && !S.teams) chipText(`왼 ${s.z.left} · 오 ${s.z.right}`, s.cx, sy + sh + u * 1.2, u * 4, PAPER, 'center');
