@@ -71,7 +71,8 @@
         <option value="solo">1인 연습</option>
         <option value="duel2">2인 대결 (청·홍)</option>
         <option value="duel3">3인 대결</option>
-        <option value="fight">겨루기 게임 (에너지)</option>
+        <option value="fight">겨루기 게임 1:1 (에너지)</option>
+        <option value="team2">겨루기 팀전 2:2 (에너지)</option>
         <option value="target">표적 맞히기</option>
       </select>
     </div>
@@ -135,7 +136,7 @@
     <div class="note">
       · 휴대폰 미디어 음량을 켜 주세요.<br>
       · 인스타·카카오톡 안에서 열면 카메라가 안 될 수 있어요. <b>크롬(또는 사파리)</b>으로 열어 주세요.<br>
-      · 녹화 영상은 끝나면 자동으로 저장됩니다. 아이폰은 기종에 따라 저장이 안 될 수 있어요.<br>
+      · 녹화는 화면 + 현장 소리(마이크) + 타격음이 함께 저장돼요. 처음 녹화할 때 마이크 사용을 '허용'해 주세요. 숫자 음성 안내는 기기에 따라 녹화에서 빠질 수 있고, 아이폰은 기종에 따라 저장이 안 될 수 있어요.<br>
       · 동작을 세는 연습용 프로그램입니다. 타격의 위력·정확도는 판정하지 않으며, 빠른 동작이나 가림 때문에 오차가 날 수 있어요.<br>
       · 영상은 이 기기 안에서만 처리하고 어디로도 보내지 않습니다. 처음 한 번은 인식 프로그램을 받느라 인터넷이 필요해요.
     </div>
@@ -242,7 +243,8 @@ const MODES = {
   solo:  { zones:1, names:['나'], colors:['#f2c14e'], info:'혼자 연습합니다. 화면 가운데에 서서 왼발·오른발 아무 발차기나 허리 높이까지 차세요.' },
   duel2: { zones:2, names:['청','홍'], colors:['#2f8cff','#ff4d5e'], info:'2인 대결: 왼쪽 청 · 오른쪽 홍에 서 주세요. 서로 겹치지 않게 전신을 보여 주세요. 많이 찬 사람이 승리!' },
   duel3: { zones:3, names:['1번','2번','3번'], colors:['#2f8cff','#ff4d5e','#f5c542'], info:'3인 대결: 왼쪽부터 1·2·3번 구역에 서 주세요. 가로 화면으로 충분히 떨어져 찍으면 잘 됩니다.' },
-  fight: { zones:2, names:['청','홍'], colors:['#2f8cff','#ff4d5e'], info:'겨루기 게임(비접촉): 서로 닿지 않는 거리에서 각자 구역에서 발차기하세요. 몸통 높이 발차기는 상대 에너지 −2, 얼굴 높이까지 올라가면 추가 −2(총 −4)! 에너지 0이 되거나 시간이 끝나면 남은 에너지로 승부합니다. 실제 접촉은 절대 하지 마세요.' },
+  fight: { zones:2, names:['청','홍'], colors:['#2f8cff','#ff4d5e'], team:[0,1], dmg:[2,2], info:'겨루기 게임(비접촉): 서로 닿지 않는 거리에서 각자 구역에서 발차기하세요. 몸통 높이 발차기는 상대 에너지 −2, 얼굴 높이까지 올라가면 추가 −2(총 −4)! 에너지 0이 되거나 시간이 끝나면 남은 에너지로 승부합니다. 실제 접촉은 절대 하지 마세요.' },
+  team2: { zones:4, names:['청1','청2','홍1','홍2'], colors:['#2f8cff','#6fc0ff','#ff4d5e','#ff8fa0'], team:[0,0,1,1], dmg:[1,1], info:'2:2 팀전(비접촉): 왼쪽 두 명은 청팀, 오른쪽 두 명은 홍팀입니다. 화면을 4칸으로 나눠 각자 자기 칸에서 발차기하세요. 몸통 높이 −1, 얼굴 높이까지 올라가면 추가 −1(총 −2), 팀 공용 에너지 100! 가로 화면으로 4명 전신이 다 보이게 충분히 떨어져 찍어 주세요. 실제 접촉은 절대 하지 마세요.' },
   target:{ zones:1, names:['나'], colors:['#f2c14e'], info:'표적 맞히기: 날아오는 표적을 화면 속 발로 맞히세요! 1~5단계는 표적 속도가 달라집니다. 한 명만 전신이 보이게 서고, 주변에 충분한 공간을 확보하세요. 표적은 화면 속 그림이라 실제로 찰 물건은 없습니다.' },
 };
 
@@ -263,6 +265,7 @@ function resetZones() {
     name, color:m.colors[i], count:0, left:0, right:0, energy:100, flash:0, present:false, tr:K.newTracker(),
   }));
   S.targets = []; S.parts = []; S.bursts = []; S.hits = 0; S.result = ''; S.end = null;
+  S.teams = m.team ? [{ name:'청', color:'#2f8cff', energy:100, flash:0 }, { name:'홍', color:'#ff4d5e', energy:100, flash:0 }] : null;
 }
 function applySettings() {
   S.mode = $('mode').value; S.duration = +$('dur').value; S.level = +$('level').value;
@@ -285,13 +288,20 @@ function showBest() {
 
 /* ---------- 소리 ---------- */
 let actx = null;
-function audio() { if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (actx && actx.state === 'suspended') actx.resume(); return actx; }
+let outNode = null, recDest = null;   // 게임 소리 → 스피커 + 녹화
+function audio() {
+  if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)();
+    outNode = actx.createGain(); outNode.connect(actx.destination);
+    if (actx.createMediaStreamDestination) { recDest = actx.createMediaStreamDestination(); outNode.connect(recDest); }
+  } catch (e) {} }
+  if (actx && actx.state === 'suspended') actx.resume(); return actx;
+}
 function beep(freq = 880, dur = 0.15, vol = 0.25, type = 'sine') {
   if (!$('sound').checked) return; const a = audio(); if (!a) return;
   const o = a.createOscillator(), g = a.createGain();
   o.type = type; o.frequency.value = freq; g.gain.value = vol;
   g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + dur);
-  o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + dur);
+  o.connect(g); g.connect(outNode); o.start(); o.stop(a.currentTime + dur);
 }
 function hitSound(big) {
   if (!$('sound').checked) return; const a = audio(); if (!a) return;
@@ -299,7 +309,7 @@ function hitSound(big) {
   for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3);
   const src = a.createBufferSource(), g = a.createGain(), f = a.createBiquadFilter();
   f.type = 'lowpass'; f.frequency.value = big ? 2500 : 1600; g.gain.value = big ? 0.9 : 0.6;
-  src.buffer = buf; src.connect(f); f.connect(g); g.connect(a.destination); src.start();
+  src.buffer = buf; src.connect(f); f.connect(g); g.connect(outNode); src.start();
 }
 const KO_NUM = ['영','하나','둘','셋','넷','다섯','여섯','일곱','여덟','아홉','열'];
 function say(text) {
@@ -370,8 +380,8 @@ function finish(reason) {
   } else if (S.mode === 'target') {
     text = `종료! 맞힌 표적 ${S.hits}개`;
     if (reason !== 'stop' && S.hits > getBest()) { setBest(S.hits); text += ' 🏆 신기록!'; }
-  } else if (S.mode === 'fight') {
-    const [a, b] = z, w = a.energy === b.energy ? null : (a.energy > b.energy ? a : b);
+  } else if (S.teams) {
+    const [a, b] = S.teams, w = a.energy === b.energy ? null : (a.energy > b.energy ? a : b);
     text = w ? `종료! ${w.name} 승리! (청 ${a.energy} : 홍 ${b.energy})` : `종료! 무승부 (${a.energy} : ${b.energy})`;
     S.end = { big: w ? `${w.name} WIN` : 'DRAW', color: w ? w.color : '#fff', sub: `남은 에너지 · 청 ${a.energy} : 홍 ${b.energy}` };
   } else {
@@ -396,16 +406,16 @@ function onEvent(zi, e, now) {
   if (e.type === 'kick') {
     z.count++; if (e.side === 'L') z.left++; else z.right++;
     z.flash = now; hitSound(e.face);
-    if (S.mode === 'fight') {
-      const opp = S.zones[1 - zi];
-      opp.energy = Math.max(0, opp.energy - (e.face ? 4 : 2)); opp.flash = now;
-      if (e.face) flashMsg('얼굴 공격! −4', z.color);
+    if (S.teams) {
+      const m = MODES[S.mode], opp = S.teams[1 - m.team[zi]], d = m.dmg[0] + (e.face ? m.dmg[1] : 0);
+      opp.energy = Math.max(0, opp.energy - d); opp.flash = now;
+      if (e.face) flashMsg(`얼굴 공격! −${d}`, z.color);
       if (opp.energy <= 0) finish('ko');
     }
-  } else if (e.type === 'face' && S.mode === 'fight') {
-    const opp = S.zones[1 - zi];
-    opp.energy = Math.max(0, opp.energy - 2); opp.flash = now; hitSound(true);
-    flashMsg('얼굴 높이! 추가 −2', z.color);
+  } else if (e.type === 'face' && S.teams) {
+    const m = MODES[S.mode], opp = S.teams[1 - m.team[zi]];
+    opp.energy = Math.max(0, opp.energy - m.dmg[1]); opp.flash = now; hitSound(true);
+    flashMsg(`얼굴 높이! 추가 −${m.dmg[1]}`, z.color);
     if (opp.energy <= 0) finish('ko');
   }
 }
@@ -496,7 +506,7 @@ function loop() {
   S.parts = S.parts.filter(p => p.until > now);
   S.parts.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; });
 
-  if (landmarker && S.phase !== 'run' && S.phase !== 'count' && S.phase !== 'done') {
+  if (landmarker && !(rec && rec.state === 'recording') && S.phase !== 'run' && S.phase !== 'count' && S.phase !== 'done') {
     const cnt = S.poses.length;
     status(cnt ? `몸 인식 중 · ${cnt}명` : '몸을 찾는 중 · 전신이 보이게 서 주세요');
   }
@@ -532,7 +542,7 @@ function guideText() {
   if (S.phase === 'count') return '준비! 전신이 보이게 서 주세요.';
   if (S.phase === 'done') return '끝! 다시 하려면 시작을 누르세요.';
   if (S.phase === 'run') return ({ solo:'발차기! 허리 높이로 차고 발을 내려 주세요.', duel2:'대결 중! 각자 화면의 왼쪽·오른쪽을 지켜 주세요.',
-    duel3:'대결 중! 각자 자기 구역을 지켜 주세요.', fight:'게임 중! 접촉 없이 각자의 영역에서 발차기하세요.', target:'날아오는 표적을 발로 맞히세요!' })[S.mode];
+    duel3:'대결 중! 각자 자기 구역을 지켜 주세요.', fight:'게임 중! 접촉 없이 각자의 영역에서 발차기하세요.', team2:'팀전 중! 접촉 없이 각자 자기 칸에서 발차기하세요.', target:'날아오는 표적을 발로 맞히세요!' })[S.mode];
   return landmarker ? '전신이 보이면 시작을 누르세요.' : '카메라를 켜 주세요.';
 }
 function draw(now, aspect, feet) {
@@ -587,10 +597,10 @@ function draw(now, aspect, feet) {
 
   // 에너지 바(겨루기)
   let y0 = u * 3;
-  if (S.mode === 'fight') {
+  if (S.teams) {
     const by = u * 6, bh = u * 3.2, gapV = u * 10, bw = (W - gapV) / 2 - u * 3;
     ctx.font = `900 ${u * 6}px sans-serif`; ctx.textAlign = 'center'; ctx.fillStyle = '#f2c14e'; ctx.fillText('VS', W / 2, by + bh + u * 0.8);
-    S.zones.forEach((z, i) => {
+    S.teams.forEach((z, i) => {
       const x = i === 0 ? u * 3 : W - u * 3 - bw;
       ctx.font = `900 ${u * 3.6}px sans-serif`; ctx.fillStyle = z.color;
       ctx.textAlign = i === 0 ? 'left' : 'right'; ctx.fillText(z.name, i === 0 ? x : x + bw, by - u * 1);
@@ -620,7 +630,7 @@ function draw(now, aspect, feet) {
   else { const tw = cards.length * cw + (cards.length - 1) * gap; xs = cards.map((c, i) => (W - tw) / 2 + i * (cw + gap)); }
   cards.forEach((c, i) => {
     box(xs[i], y0, cw, bh, c.t, c.v, c.unit, c.c, c.f);
-    if (c.z && S.mode !== 'fight') pill(`${n > 1 ? c.z.name + ' · ' : ''}왼발 ${c.z.left} · 오른발 ${c.z.right}`, xs[i] + cw / 2, y0 + bh + u * 1.2, u * 4.6, n > 1 ? c.z.color : '#f2c14e');
+    if (c.z && !S.teams) pill(`${n > 1 ? c.z.name + ' · ' : ''}왼발 ${c.z.left} · 오른발 ${c.z.right}`, xs[i] + cw / 2, y0 + bh + u * 1.2, u * 4.6, n > 1 ? c.z.color : '#f2c14e');
   });
   if (S.mode === 'target' && S.phase === 'idle') bigText('표적을 발로 맞혀보세요!', u * 6, '#f2c14e', H * 0.5);
 
@@ -671,15 +681,28 @@ document.addEventListener('fullscreenchange', () => { if (!document.fullscreenEl
 /* ---------- 녹화 ---------- */
 let rec = null, chunks = [];
 function pickType() {
-  const list = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+  const list = ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
   for (const t of list) if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) return t;
   return '';
 }
-function startRec() {
+let mic = null, micSrc = null;
+async function startRec() {
   if (!window.MediaRecorder || !cv.captureStream) { status('이 브라우저는 녹화를 지원하지 않아요. 크롬을 써 주세요.', true); return; }
-  const type = pickType(); chunks = [];
-  try { rec = new MediaRecorder(cv.captureStream(30), type ? { mimeType:type, videoBitsPerSecond:4000000 } : undefined); }
-  catch (e) { status('녹화를 시작하지 못했어요.', true); return; }
+  const a = audio(); chunks = [];
+  // 현장 소리(마이크) 켜기 — 거절하면 화면 + 게임 소리만 녹화
+  let withMic = false;
+  try {
+    mic = await navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:false, noiseSuppression:false, autoGainControl:true }, video:false });
+    if (a && recDest) { micSrc = a.createMediaStreamSource(mic); micSrc.connect(recDest); withMic = true; }
+  } catch (e) { mic = null; }
+  const tracks = [...cv.captureStream(30).getVideoTracks()];
+  if (recDest) tracks.push(...recDest.stream.getAudioTracks());
+  const type = pickType();
+  try { rec = new MediaRecorder(new MediaStream(tracks), type ? { mimeType:type, videoBitsPerSecond:4000000 } : undefined); }
+  catch (e) {
+    try { rec = new MediaRecorder(new MediaStream(tracks)); } catch (e2) { status('녹화를 시작하지 못했어요.', true); stopMic(); return; }
+  }
+  status(withMic ? '● 녹화 중 · 화면 + 현장 소리 + 효과음' : '● 녹화 중 · 화면 + 효과음 (마이크 허용 안 됨)');
   rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
   rec.onstop = () => {
     const mt = rec.mimeType || type || 'video/webm', ext = mt.includes('mp4') ? 'mp4' : 'webm';
@@ -689,11 +712,13 @@ function startRec() {
     $('recArea').innerHTML = ''; $('recArea').appendChild(a);
     try { a.click(); } catch (e) {}
     $('recBtn').textContent = '● 녹화'; $('recBtn').classList.add('red');
+    stopMic(); status('녹화 영상을 저장했어요. (안 보이면 아래 "다시 저장하기"를 누르세요)');
   };
   rec.start(500);
   $('recBtn').textContent = '■ 녹화 중지'; $('recBtn').classList.remove('red');
 }
 function stopRec() { if (rec && rec.state === 'recording') rec.stop(); }
+function stopMic() { try { if (micSrc) micSrc.disconnect(); } catch (e) {} micSrc = null; if (mic) mic.getTracks().forEach(t => t.stop()); mic = null; }
 $('recBtn').addEventListener('click', () => { if (rec && rec.state === 'recording') stopRec(); else startRec(); });
 
 applySettings();
