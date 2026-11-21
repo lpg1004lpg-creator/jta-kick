@@ -48,8 +48,9 @@
   .stage canvas{width:100%;height:auto;display:block;background:#0d0c0b}
   .stage .placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;color:#cbbfa8;font-size:17px;line-height:1.7;padding:20px}
   .stage .placeholder .big{font-size:46px}
-  .bar{display:flex;gap:6px;padding:8px;background:#1c1a17;flex-wrap:wrap}
-  .bar button{flex:1;min-width:58px;white-space:nowrap;font-family:inherit;font-weight:900;font-size:15px;padding:11px 4px;border-radius:999px;border:2px solid #4a443c;background:#2a2723;color:#f5efe3;cursor:pointer}
+  .bar{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;padding:8px;background:#1c1a17}
+  @media(max-width:600px){.bar{grid-template-columns:repeat(3,1fr)}}
+  .bar button{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:inherit;font-weight:900;font-size:15px;padding:11px 4px;border-radius:999px;border:2px solid #4a443c;background:#2a2723;color:#f5efe3;cursor:pointer}
   .bar .go{background:var(--crimson);border-color:var(--crimson);color:#fff}
   .bar .rec{background:#f5efe3;color:var(--crimson);border-color:#f5efe3}
   .bar button:disabled{opacity:.35;cursor:default}
@@ -130,6 +131,7 @@
     <div class="bar">
       <button id="camFront2">🤳 앞</button>
       <button id="camBack2">📷 뒤</button>
+      <button id="mirrorBtn2">🪞 거울</button>
       <button class="go" id="startBtn" disabled>▶ 시작</button>
       <button id="stopBtn" disabled>■ 멈춤</button>
       <button class="rec" id="recBtn" disabled>● 녹화</button>
@@ -138,6 +140,9 @@
   <div class="row" style="margin-top:10px">
     <button class="btn" id="bigV">⛶ 전체화면 (세로)</button>
     <button class="btn" id="bigH">⛶ 전체화면 (가로)</button>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <button class="btn" id="mirrorBtn">🪞 거울 모드: 켜짐</button>
   </div>
 
   <div class="status" id="status">카메라를 기다리는 중</div>
@@ -151,6 +156,7 @@
     </div>
     <div class="note">
       · 휴대폰 미디어 소리를 켜 주세요.<br>
+      · 🪞 <b>거울 모드</b>: 화면을 거울처럼 좌우로 뒤집어 보여 줘요. 프로젝터 스크린 아래에 카메라를 두고 아이들이 스크린을 보며 할 때 켜 두면, 내 오른발이 화면에서도 오른쪽에 보여요. (앞 카메라는 처음부터 켜짐, 뒤 카메라는 처음엔 꺼짐 — 바꾼 설정은 기억돼요)<br>
       · 인스타·카카오톡 안에서 열면 카메라가 안 될 수 있어요. <b>크롬(또는 사파리)</b>으로 열어 주세요.<br>
       · 녹화하면 화면 + 현장 소리(마이크) + 타격음이 함께 저장돼요. 처음 녹화할 때 마이크를 '허용'해 주세요. 숫자 음성은 기기에 따라 빠질 수 있고, 아이폰은 기종에 따라 저장이 안 될 수 있어요.<br>
       · 동작 횟수를 세는 연습용 프로그램이에요. 위력·정확도는 판정하지 않고, 빠른 동작이나 가림 때문에 오차가 날 수 있어요.<br>
@@ -373,7 +379,7 @@ async function startCam(facing) {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('nocam');
     stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:facing, width:{ ideal:1280 }, height:{ ideal:720 } }, audio:false });
     video.srcObject = stream; await video.play();
-    S.mirror = facing === 'user';
+    S.facing = facing; S.mirror = loadMirror(facing); showMirror();
     $('ph').style.display = 'none';
     try { await loadModel(); }
     catch (e) { loading = false; console.error(e); status('몸 인식 프로그램을 받지 못했어요. 인터넷(와이파이)을 확인하고 다시 눌러 주세요.', true); return; }
@@ -388,6 +394,24 @@ async function startCam(facing) {
 $('camFront').addEventListener('click', () => startCam('user'));
 $('camBack').addEventListener('click', () => startCam('environment'));
 $('camFront2').addEventListener('click', () => startCam('user'));
+/* ---------- 거울 모드 ---------- */
+// 앞 카메라는 기본 켜짐, 뒤 카메라는 기본 꺼짐. 바꾼 설정은 카메라별로 기억.
+function loadMirror(facing) { try { const v = localStorage.getItem('jtaMirror_' + facing); if (v !== null) return v === '1'; } catch (e) {} return facing === 'user'; }
+function saveMirror() { try { localStorage.setItem('jtaMirror_' + (S.facing || 'user'), S.mirror ? '1' : '0'); } catch (e) {} }
+function showMirror() {
+  $('mirrorBtn').textContent = '🪞 거울 모드: ' + (S.mirror ? '켜짐' : '꺼짐');
+  $('mirrorBtn2').textContent = S.mirror ? '🪞 거울 ON' : '🪞 거울 OFF';
+  $('mirrorBtn').classList.toggle('dark', S.mirror); $('mirrorBtn2').classList.toggle('go', S.mirror);
+}
+function toggleMirror() {
+  if (S.phase === 'run' || S.phase === 'count') { status('게임 중에는 바꿀 수 없어요. 멈춘 뒤에 바꿔 주세요.', true); return; }
+  S.mirror = !S.mirror; saveMirror(); showMirror();
+  resetZones();   // 좌우가 바뀌므로 자리·기록을 새로 시작
+  flashMsg(S.mirror ? '거울 모드 켜짐' : '거울 모드 꺼짐', '#ff5a6e');
+  status(S.mirror ? '거울 모드: 화면이 거울처럼 보여요' : '거울 모드 꺼짐: 카메라가 본 그대로 보여요');
+}
+$('mirrorBtn').addEventListener('click', toggleMirror);
+$('mirrorBtn2').addEventListener('click', toggleMirror);
 $('camBack2').addEventListener('click', () => startCam('environment'));
 
 /* ---------- 시작 / 중지 ---------- */
@@ -802,6 +826,7 @@ function stopMic() { try { if (micSrc) micSrc.disconnect(); } catch (e) {} micSr
 $('recBtn').addEventListener('click', () => { if (rec && rec.state === 'recording') stopRec(); else startRec(); });
 
 applySettings();
+showMirror();
 loop();
 </script>
 </body>
