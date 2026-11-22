@@ -43,6 +43,28 @@
   .info{background:#fffdf8;border-left:5px solid var(--jade);border-radius:6px 12px 12px 6px;padding:11px 14px;font-size:15px;line-height:1.65;color:var(--ink2);margin-top:12px}
   .hidden{display:none!important}
   .sub2{font-size:14px;font-weight:700;color:var(--ink2);margin:12px 0 6px}
+  /* 3줄 버튼 */
+  .cats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .cat{background:#fffdf8;border:2px solid var(--line);border-radius:16px;padding:12px 6px 10px;text-align:center;cursor:pointer;font-family:inherit;color:var(--ink);transition:.15s;min-width:0}
+  .cat .ic{font-size:28px;line-height:1.1}
+  .cat .t{font-weight:900;font-size:17px;margin-top:4px}
+  .cat .s{font-size:13px;color:var(--muted);margin-top:2px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cat.on{border-color:var(--crimson);background:var(--crimson);color:#fff;box-shadow:0 4px 0 #6d0b19}
+  .cat.on .s{color:#ffd9de}
+  .cat.open{border-color:var(--ink);box-shadow:0 4px 0 var(--ink)}
+  .panel{margin-top:10px;background:#fffdf8;border:2px solid var(--line);border-radius:14px;padding:4px 14px 14px}
+  .names{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+  .nm{display:flex;align-items:center;gap:8px}
+  .nm .tagc{flex:0 0 auto;font-weight:900;font-size:14px;color:#fff;border-radius:999px;padding:5px 10px}
+  .nm input{flex:1;min-width:0;font-family:inherit;font-size:17px;font-weight:700;padding:9px 10px;border:2px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+  .cams{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+  .cam{background:var(--ink);color:var(--paper);border:2px solid var(--ink);border-radius:14px;padding:10px 4px;font-family:inherit;font-weight:900;font-size:15px;cursor:pointer;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cam .ic{font-size:22px;line-height:1.2}
+  .cam.on{background:var(--crimson);border-color:var(--crimson);color:#fff}
+  @media(max-width:520px){.cat .t{font-size:15px}.cam{font-size:13px}.cam .ic{font-size:19px}}
+  .bar .rec.armed{background:var(--crimson);color:#fff;border-color:#fff}
+  .bar .rec.live{background:#ff2d48;color:#fff;border-color:#fff;animation:blink 1s infinite}
+  @keyframes blink{50%{opacity:.55}}
   /* 무대 */
   .stage{position:relative;margin-top:12px;background:#0d0c0b;border-radius:18px;overflow:hidden;border:3px solid var(--ink);display:flex;flex-direction:column;box-shadow:6px 6px 0 var(--crimson)}
   .stage .view{position:relative}
@@ -87,86 +109,113 @@
   </div>
   <div class="lead">카메라 앞에 <b>머리부터 발끝까지</b> 보이게 서세요. 어떤 발차기든 <b>발이 허리 높이</b>를 넘으면 한 번으로 셉니다.</div>
 
-  <h2><span class="n">1</span>무엇을 할까요?</h2>
-  <div class="tiles" id="modeTiles">
-    <button class="tile" data-mode="solo"><div class="ic">🥋</div><div class="t">1인 Speed Kick</div><div class="s">발차기 횟수</div></button>
-    <button class="tile" data-mode="duel2"><div class="ic">⚔️</div><div class="t">1:1 대결</div><div class="s">청 · 홍 횟수 대결</div></button>
-    <button class="tile" data-mode="duel3"><div class="ic">👥</div><div class="t">4인 대결</div><div class="s">네 명 횟수 대결</div></button>
-    <button class="tile" data-mode="fight"><div class="ic">🛡️</div><div class="t">1:1 겨루기</div><div class="s">체력 깎기 게임</div></button>
-    <button class="tile" data-mode="team2"><div class="ic">🤝</div><div class="t">2:2 팀전</div><div class="s">팀 체력 게임</div></button>
-    <button class="tile" data-mode="target"><div class="ic">🪵</div><div class="t">송판 격파</div><div class="s">날아오는 송판</div></button>
+  <h2><span class="n">1</span>종목</h2>
+  <div class="cats" id="catRow">
+    <button class="cat" data-cat="speed"><div class="ic">⚡</div><div class="t">스피드킥</div><div class="s" id="catS_speed"></div></button>
+    <button class="cat" data-cat="fight"><div class="ic">⚔️</div><div class="t">겨루기</div><div class="s" id="catS_fight"></div></button>
+    <button class="cat" data-cat="game"><div class="ic">🎮</div><div class="t">게임</div><div class="s" id="catS_game"></div></button>
   </div>
-  <select id="mode" class="hidden">
-    <option value="solo">1인 Speed Kick</option><option value="duel2">1:1 대결</option><option value="duel3">4인 대결</option>
-    <option value="fight">1:1 겨루기</option><option value="robot">로봇 대련</option><option value="team2">2:2 팀전</option><option value="target">송판 격파</option>
-  </select>
-  <div id="robotField" class="hidden">
-    <h2><span class="n">+</span>누구랑 겨룰까요?</h2>
-    <div class="chips" id="oppChips">
-      <button class="chip" data-v="fight">👤 친구랑</button><button class="chip" data-v="robot">🤖 검무봇이랑</button>
+  <div class="panel hidden" id="p_speed">
+    <div class="sub2">몇 명이 할까요?</div>
+    <div class="chips" id="speedChips">
+      <button class="chip" data-m="solo">1인</button><button class="chip" data-m="duel2">2인</button><button class="chip" data-m="duel3">3인</button><button class="chip" data-m="duel4">4인</button>
     </div>
-    <div id="robotLvBox" class="hidden" style="margin-top:10px">
+  </div>
+  <div class="panel hidden" id="p_fight">
+    <div class="sub2">누구랑 겨룰까요?</div>
+    <div class="chips" id="fightChips">
+      <button class="chip" data-m="fight">1:1</button><button class="chip" data-m="team2">2:2</button><button class="chip" data-m="robot">🤖 1:1 로봇</button>
+    </div>
+    <div id="robotLvBox" class="hidden">
+      <div class="sub2">검무봇 실력</div>
       <div class="chips" id="robotLvChips">
         <button class="chip" data-v="1">쉬움</button><button class="chip" data-v="2">보통</button><button class="chip" data-v="3">어려움</button>
       </div>
-      <select id="robotLv" class="hidden"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option></select>
     </div>
   </div>
-  <div class="info" id="modeinfo"></div>
-
-  <h2><span class="n">2</span>몇 초 동안?</h2>
-  <div class="chips" id="durChips">
-    <button class="chip" data-v="20">20초</button><button class="chip" data-v="30">30초</button><button class="chip" data-v="40">40초</button>
-    <button class="chip" data-v="50">50초</button><button class="chip" data-v="60">1분</button>
-    <button class="chip" data-v="90">1분 30초</button><button class="chip" data-v="120">2분</button>
-  </div>
-  <select id="dur" class="hidden"><option value="20">20</option><option value="30" selected>30</option><option value="40">40</option><option value="50">50</option><option value="60">60</option><option value="90">90</option><option value="120">120</option></select>
-  <div class="sub2">시계 보이는 방식</div>
-  <div class="chips" id="clockChips">
-    <button class="chip" data-v="down">⏳ 줄어드는 시계</button><button class="chip" data-v="up">⏱️ 늘어나는 시계</button>
-  </div>
-  <select id="clock" class="hidden"><option value="down" selected>down</option><option value="up">up</option></select>
-  <div id="matchField" class="hidden">
-    <h2><span class="n">+</span>경기 방식</h2>
-    <div class="sub2">라운드</div>
-    <div class="chips" id="roundChips">
-      <button class="chip" data-v="1">단판</button><button class="chip" data-v="3">3판 2선승</button><button class="chip" data-v="5">5판 3선승</button>
+  <div class="panel hidden" id="p_game">
+    <div class="chips"><button class="chip on" disabled style="opacity:1">🪵 송판 격파</button></div>
+    <div class="sub2">몇 명이 할까요?</div>
+    <div class="chips" id="gameChips">
+      <button class="chip" data-m="target">1인</button><button class="chip" data-m="target2">2인</button><button class="chip" data-m="target3">3인</button><button class="chip" data-m="target4">4인</button>
     </div>
-    <select id="rounds" class="hidden"><option value="1" selected>1</option><option value="3">3</option><option value="5">5</option></select>
-    <div id="restBox">
-      <div class="sub2">라운드 사이 쉬는 시간</div>
-      <div class="chips" id="restChips">
-        <button class="chip" data-v="10">10초</button><button class="chip" data-v="20">20초</button><button class="chip" data-v="30">30초</button>
-      </div>
-      <select id="rest" class="hidden"><option value="10">10</option><option value="20" selected>20</option><option value="30">30</option></select>
-    </div>
-    <div id="energyBox">
-      <div class="sub2">시작 체력</div>
-      <div class="chips" id="energyChips">
-        <button class="chip" data-v="100">100</button><button class="chip" data-v="200">200</button><button class="chip" data-v="300">300</button>
-      </div>
-      <select id="energy" class="hidden"><option value="100" selected>100</option><option value="200">200</option><option value="300">300</option></select>
-    </div>
-  </div>
-  <div id="levelField" class="hidden">
-    <h2><span class="n">+</span>송판 속도</h2>
+    <div class="sub2">송판 속도</div>
     <div class="chips" id="levelChips">
       <button class="chip" data-v="1">1단</button><button class="chip" data-v="2">2단</button><button class="chip" data-v="3">3단</button>
       <button class="chip" data-v="4">4단</button><button class="chip" data-v="5">5단</button>
     </div>
-    <select id="level" class="hidden"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option></select>
   </div>
+  <div class="panel" id="namePanel">
+    <div class="sub2" id="nameTitle">선수 이름</div>
+    <div class="names" id="nameBox"></div>
+  </div>
+  <select id="mode" class="hidden">
+    <option value="solo">solo</option><option value="duel2">duel2</option><option value="duel3">duel3</option><option value="duel4">duel4</option>
+    <option value="fight">fight</option><option value="robot">robot</option><option value="team2">team2</option>
+    <option value="target">target</option><option value="target2">target2</option><option value="target3">target3</option><option value="target4">target4</option>
+  </select>
+  <select id="robotLv" class="hidden"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option></select>
+  <select id="level" class="hidden"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option></select>
+  <div class="info" id="modeinfo"></div>
 
-  <h2><span class="n">3</span>카메라 켜고 시작!</h2>
-  <div class="row">
-    <button class="btn dark" id="camFront">🤳 앞 카메라</button>
-    <button class="btn dark" id="camBack">📷 뒤 카메라</button>
+  <h2><span class="n">2</span>경기 설정</h2>
+  <div class="cats" id="setRow">
+    <button class="cat" data-set="time"><div class="ic">⏱️</div><div class="t">시간</div><div class="s" id="setS_time"></div></button>
+    <button class="cat" data-set="clock"><div class="ic">⏳</div><div class="t">게이지 방식</div><div class="s" id="setS_clock"></div></button>
+    <button class="cat" data-set="match"><div class="ic">🏆</div><div class="t">경기 방식</div><div class="s" id="setS_match"></div></button>
+  </div>
+  <div class="panel hidden" id="s_time">
+    <div class="chips" id="durChips">
+      <button class="chip" data-v="20">20초</button><button class="chip" data-v="30">30초</button><button class="chip" data-v="40">40초</button>
+      <button class="chip" data-v="50">50초</button><button class="chip" data-v="60">1분</button>
+      <button class="chip" data-v="90">1분 30초</button><button class="chip" data-v="120">2분</button>
+    </div>
+  </div>
+  <div class="panel hidden" id="s_clock">
+    <div class="chips" id="clockChips">
+      <button class="chip" data-v="down">⏳ 줄어듬</button><button class="chip" data-v="up">⏱️ 늘어남</button>
+    </div>
+  </div>
+  <div class="panel hidden" id="s_match">
+    <div id="matchField">
+      <div class="sub2">판 수</div>
+      <div class="chips" id="roundChips">
+        <button class="chip" data-v="1">단판</button><button class="chip" data-v="3">3판 2선승</button><button class="chip" data-v="5">5판 3선승</button>
+      </div>
+      <div id="restBox">
+        <div class="sub2">라운드 사이 쉬는 시간</div>
+        <div class="chips" id="restChips">
+          <button class="chip" data-v="10">10초</button><button class="chip" data-v="20">20초</button><button class="chip" data-v="30">30초</button>
+        </div>
+      </div>
+      <div id="energyBox">
+        <div class="sub2">시작 체력</div>
+        <div class="chips" id="energyChips">
+          <button class="chip" data-v="100">100</button><button class="chip" data-v="200">200</button><button class="chip" data-v="300">300</button>
+        </div>
+      </div>
+    </div>
+    <div class="sub2" id="matchNote">혼자 하는 종목은 단판으로만 해요.</div>
+  </div>
+  <select id="dur" class="hidden"><option value="20">20</option><option value="30" selected>30</option><option value="40">40</option><option value="50">50</option><option value="60">60</option><option value="90">90</option><option value="120">120</option></select>
+  <select id="clock" class="hidden"><option value="down" selected>down</option><option value="up">up</option></select>
+  <select id="rounds" class="hidden"><option value="1" selected>1</option><option value="3">3</option><option value="5">5</option></select>
+  <select id="rest" class="hidden"><option value="10">10</option><option value="20" selected>20</option><option value="30">30</option></select>
+  <select id="energy" class="hidden"><option value="100" selected>100</option><option value="200">200</option><option value="300">300</option></select>
+
+  <h2><span class="n">3</span>카메라</h2>
+  <div class="cams" id="camRow">
+    <button class="cam" id="camFront"><div class="ic">🤳</div>앞 카메라</button>
+    <button class="cam" id="camBack"><div class="ic">📷</div>뒤 카메라</button>
+    <button class="cam" id="orientV"><div class="ic">📱</div>세로</button>
+    <button class="cam" id="orientH"><div class="ic">🖥️</div>가로</button>
+    <button class="cam" id="mirrorBtn"><div class="ic">🪞</div><span id="mirrorTxt">거울</span></button>
   </div>
 
   <div class="stage" id="stage">
     <div class="view">
       <canvas id="cv" width="1280" height="720"></canvas>
-      <div class="placeholder" id="ph"><div class="big">🥋</div>위의 <b>&nbsp;카메라&nbsp;</b>버튼을 눌러 주세요</div>
+      <div class="placeholder" id="ph"><div class="big">🥋</div><div>위 <b>3 카메라</b>에서 <b>앞</b> 또는 <b>뒤 카메라</b>를 눌러 주세요</div></div>
       <button class="close" id="closeBig">← 돌아가기</button>
     </div>
     <div class="bar">
@@ -178,14 +227,6 @@
       <button class="rec" id="recBtn" disabled>● 녹화</button>
     </div>
   </div>
-  <div class="row" style="margin-top:10px">
-    <button class="btn" id="bigV">⛶ 전체화면 (세로)</button>
-    <button class="btn" id="bigH">⛶ 전체화면 (가로)</button>
-  </div>
-  <div class="row" style="margin-top:8px">
-    <button class="btn" id="mirrorBtn">🪞 거울 모드: 켜짐</button>
-  </div>
-
   <div class="status" id="status">카메라를 기다리는 중</div>
   <div class="best" id="best"></div>
   <div class="rec-area" id="recArea"></div>
@@ -199,7 +240,7 @@
       · 휴대폰 미디어 소리를 켜 주세요.<br>
       · 🪞 <b>거울 모드</b>: 화면을 거울처럼 좌우로 뒤집어 보여 줘요. 프로젝터 스크린 아래에 카메라를 두고 아이들이 스크린을 보며 할 때 켜 두면, 내 오른발이 화면에서도 오른쪽에 보여요. (앞 카메라는 처음부터 켜짐, 뒤 카메라는 처음엔 꺼짐 — 바꾼 설정은 기억돼요)<br>
       · 인스타·카카오톡 안에서 열면 카메라가 안 될 수 있어요. <b>크롬(또는 사파리)</b>으로 열어 주세요.<br>
-      · 녹화하면 화면 + 현장 소리(마이크) + 타격음이 함께 저장돼요. 처음 녹화할 때 마이크를 '허용'해 주세요. 숫자 음성은 기기에 따라 빠질 수 있고, 아이폰은 기종에 따라 저장이 안 될 수 있어요.<br>
+      · ● 녹화를 눌러 '녹화 대기'로 두면 ▶ 시작 순간부터 녹화되고, 경기가 끝나거나 ■ 멈춤을 누르면 자동으로 저장돼요. 화면 + 현장 소리(마이크) + 타격음이 함께 저장돼요. 처음 녹화할 때 마이크를 '허용'해 주세요. 숫자 음성은 기기에 따라 빠질 수 있고, 아이폰은 기종에 따라 저장이 안 될 수 있어요.<br>
       · 동작 횟수를 세는 연습용 프로그램이에요. 위력·정확도는 판정하지 않고, 빠른 동작이나 가림 때문에 오차가 날 수 있어요.<br>
       · 영상은 이 기기 안에서만 처리하고 어디로도 보내지 않아요. 처음 한 번은 인식 프로그램을 받느라 인터넷이 필요해요.
     </div>
@@ -303,14 +344,20 @@ const cv = $('cv'), ctx = cv.getContext('2d');
 const video = document.createElement('video');
 video.playsInline = true; video.muted = true; video.setAttribute('playsinline', '');
 
+const SPC = ['#3d8bff', '#ff3b55', '#2fbf8f', '#ffb020'];   // 1~4번 선수 색
+const numNames = n => Array.from({ length:n }, (_, i) => `${i + 1}번 선수`);
 const MODES = {
-  solo:  { zones:1, names:['나'], colors:['#ff5a6e'], info:'🥋 1인 Speed Kick — 화면 가운데 서서 왼발·오른발 어떤 발차기든 허리 높이 위로 차세요. 시간 안에 몇 번 찰 수 있을까요?' },
-  duel2: { zones:2, names:['청','홍'], colors:['#3d8bff','#ff3b55'], info:'⚔️ 1:1 대결 — 왼쪽은 청, 오른쪽은 홍 자리예요. 서로 겹치지 않게 전신이 보이도록 서고, 더 많이 찬 사람이 이겨요.' },
-  duel3: { zones:4, names:['청','홍','녹','황'], colors:['#3d8bff','#ff3b55','#2fbf8f','#ffb020'], info:'👥 4인 대결 — 화면을 4칸으로 나눠 왼쪽부터 청·홍·녹·황 자리예요. 가로로 멀리서 찍어 네 명 모두 전신이 보이게 서 주세요.' },
-  fight: { zones:2, names:['청','홍'], colors:['#3d8bff','#ff3b55'], team:[0,1], dmg:[2,2], info:'🛡️ 1:1 겨루기(닿지 않게!) — 각자 자기 자리에서 발차기해요. 몸통 높이면 상대 체력 −2, 얼굴 높이까지 올라가면 −2 더(총 −4). 체력이 0이 되거나 시간이 끝나면 체력이 많은 쪽이 이겨요. 실제로 차서 맞히면 절대 안 돼요.' },
-  robot: { zones:1, names:['나'], colors:['#3d8bff'], team:[0], dmg:[2,2], info:'🤖 로봇 대련 — 혼자 화면에 서면 반대편에 검무봇이 나타나요. 허리 위로 차면 로봇 체력 −2(얼굴 높이는 −4). 로봇이 ❗ 신호를 보내면 곧 발차기가 와요! 두 팔을 얼굴 앞으로 올려 막거나, 옆으로 피하거나, 몸을 숙이세요. 로봇이 차고 난 뒤 빈틈에 차면 반격 보너스 +2!' },
-  team2: { zones:4, names:['청1','청2','홍1','홍2'], colors:['#3d8bff','#7fb6ff','#ff3b55','#ff8b9b'], team:[0,0,1,1], dmg:[1,1], info:'🤝 2:2 팀전(닿지 않게!) — 화면을 4칸으로 나눠 왼쪽 두 칸은 청팀, 오른쪽 두 칸은 홍팀이에요. 팀 체력 100을 함께 써요. 몸통 높이 −1, 얼굴 높이 −1 더(총 −2). 가로 전체화면으로 4명이 다 보이게 멀리서 찍어 주세요.' },
-  target:{ zones:1, names:['나'], colors:['#ff5a6e'], info:'🪵 송판 격파 — 양옆에서 송판이 날아와요! 화면 속 내 발로 송판을 맞히면 두 동강 나요. 1~5단은 송판 속도예요. 혼자 서고 주변 공간을 넓게 비워 두세요. (화면 속 그림이라 실제로 찰 물건은 없어요)' },
+  solo:  { zones:1, cat:'speed', label:'1인', names:numNames(1), colors:['#ff5a6e'], info:'⚡ 스피드킥 1인 — 화면 가운데 서서 왼발·오른발 어떤 발차기든 허리 높이 위로 차세요. 시간 안에 몇 번 찰 수 있을까요?' },
+  duel2: { zones:2, cat:'speed', label:'2인', names:numNames(2), colors:SPC.slice(0, 2), info:'⚡ 스피드킥 2인 — 왼쪽이 1번, 오른쪽이 2번 선수 자리예요. 서로 겹치지 않게 전신이 보이도록 서고, 더 많이 찬 사람이 이겨요.' },
+  duel3: { zones:3, cat:'speed', label:'3인', names:numNames(3), colors:SPC.slice(0, 3), info:'⚡ 스피드킥 3인 — 화면을 3칸으로 나눠 왼쪽부터 1·2·3번 선수 자리예요. 가로로 멀리서 찍으면 세 명 모두 잘 잡혀요.' },
+  duel4: { zones:4, cat:'speed', label:'4인', names:numNames(4), colors:SPC.slice(0, 4), info:'⚡ 스피드킥 4인 — 화면을 4칸으로 나눠 왼쪽부터 1·2·3·4번 선수 자리예요. 가로로 멀리서 찍어 네 명 모두 전신이 보이게 서 주세요.' },
+  fight: { zones:2, cat:'fight', label:'1:1', names:['청','홍'], colors:['#3d8bff','#ff3b55'], team:[0,1], dmg:[2,2], info:'🛡️ 1:1 겨루기(닿지 않게!) — 각자 자기 자리에서 발차기해요. 몸통 높이면 상대 체력 −2, 얼굴 높이까지 올라가면 −2 더(총 −4). 체력이 0이 되거나 시간이 끝나면 체력이 많은 쪽이 이겨요. 실제로 차서 맞히면 절대 안 돼요.' },
+  team2: { zones:4, cat:'fight', label:'2:2', names:['청1','청2','홍1','홍2'], colors:['#3d8bff','#7fb6ff','#ff3b55','#ff8b9b'], team:[0,0,1,1], dmg:[1,1], info:'🤝 2:2 팀전(닿지 않게!) — 화면을 4칸으로 나눠 왼쪽 두 칸은 청팀, 오른쪽 두 칸은 홍팀이에요. 팀 체력을 함께 써요. 몸통 높이 −1, 얼굴 높이 −1 더(총 −2). 가로로 4명이 다 보이게 멀리서 찍어 주세요.' },
+  robot: { zones:1, cat:'fight', label:'1:1 로봇', names:['나'], colors:['#3d8bff'], team:[0], dmg:[2,2], info:'🤖 로봇 대련 — 혼자 화면에 서면 반대편에 검무봇이 나타나요. 허리 위로 차면 로봇 체력 −2(얼굴 높이는 −4). 로봇이 ❗ 신호를 보내면 곧 발차기가 와요! 두 팔을 얼굴 앞으로 올려 막거나, 옆으로 피하거나, 몸을 숙이세요. 로봇이 차고 난 뒤 빈틈에 차면 반격 보너스 +2!' },
+  target:  { zones:1, cat:'game', label:'송판 1인', names:numNames(1), colors:['#ff5a6e'], info:'🪵 송판 격파 1인 — 양옆에서 송판이 날아와요! 화면 속 내 발로 송판을 맞히면 두 동강 나요. 1~5단은 송판 속도예요. 주변 공간을 넓게 비워 두세요. (화면 속 그림이라 실제로 찰 물건은 없어요)' },
+  target2: { zones:2, cat:'game', label:'송판 2인', names:numNames(2), colors:SPC.slice(0, 2), info:'🪵 송판 격파 2인 — 왼쪽 1번, 오른쪽 2번 선수 칸에 각자 송판이 날아와요. 내 칸의 송판을 더 많이 깬 사람이 이겨요.' },
+  target3: { zones:3, cat:'game', label:'송판 3인', names:numNames(3), colors:SPC.slice(0, 3), info:'🪵 송판 격파 3인 — 화면을 3칸으로 나눠 칸마다 송판이 날아와요. 내 칸의 송판을 많이 깬 사람이 이겨요.' },
+  target4: { zones:4, cat:'game', label:'송판 4인', names:numNames(4), colors:SPC.slice(0, 4), info:'🪵 송판 격파 4인 — 화면을 4칸으로 나눠 칸마다 송판이 날아와요. 가로로 멀리서 찍어 네 명 모두 전신이 보이게 서 주세요.' },
 };
 
 const S = {
@@ -322,7 +369,9 @@ const S = {
 };
 
 let landmarker = null, stream = null, lastVideoTime = -1, loading = false;
-const COMPETE = ['duel2', 'duel3', 'fight', 'robot', 'team2'];   // 라운드 경기가 되는 모드
+const COMPETE = ['duel2', 'duel3', 'duel4', 'fight', 'robot', 'team2', 'target2', 'target3', 'target4'];   // 라운드 경기가 되는 모드
+const isTarget = () => S.mode.startsWith('target');
+const nZones = () => MODES[S.mode].zones;
 const ENERGY_MODES = ['fight', 'robot', 'team2'];
 const busy = () => ['intro', 'count', 'run', 'roundEnd', 'rest'].includes(S.phase);
 const roundsTotal = () => COMPETE.includes(S.mode) ? S.rounds : 1;
@@ -331,54 +380,121 @@ function fmtDur(sec) { const m = Math.floor(sec / 60), s = sec % 60; return m ? 
 function fmtClock(sec) { sec = Math.max(0, Math.ceil(sec)); return `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`; }
 
 /* ---------- 화면 설정 ---------- */
-function resetZones() {
+/* ---------- 선수 이름 (기기에 기억) ---------- */
+function nameGroup(mode) { const c = MODES[mode].cat; return mode === 'robot' ? 'robot' : mode === 'team2' ? 'team2' : c === 'fight' ? 'fight' : 'players'; }
+function loadNames(g) { try { const v = JSON.parse(localStorage.getItem('jtaNames_' + g) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+function saveNames(g, arr) { try { localStorage.setItem('jtaNames_' + g, JSON.stringify(arr)); } catch (e) {} }
+function customNames() { return loadNames(nameGroup(S.mode)); }
+// 이름 칸: [표시 꼬리표, 기본 이름, 색]
+function nameSlots() {
   const m = MODES[S.mode];
+  if (S.mode === 'fight') return [['청', '비우면 청', m.colors[0]], ['홍', '비우면 홍', m.colors[1]]];
+  if (S.mode === 'robot') return [['나', '비우면 나', m.colors[0]]];
+  if (S.mode === 'team2') return m.names.map((n, i) => [n, '비우면 ' + n, m.colors[i]]);
+  return m.names.map((n, i) => [`${i + 1}번`, n, m.colors[i]]);
+}
+function renderNames() {
+  const box = $('nameBox'), cn = customNames(), sl = nameSlots();
+  $('nameTitle').textContent = S.mode === 'robot' ? '내 이름 (검무봇과 대련)' : S.mode === 'team2' ? '팀원 이름' : '선수 이름 (비워 두면 번호로 나와요)';
+  if (S.mode === 'fight') $('nameTitle').textContent = '선수 이름 (비워 두면 청·홍으로 나와요)';
+  box.innerHTML = sl.map(([tag, ph, col], i) =>
+    `<label class="nm"><span class="tagc" style="background:${col}">${tag}</span><input maxlength="6" data-i="${i}" placeholder="${ph}"></label>`).join('');
+  box.querySelectorAll('input').forEach(inp => {
+    inp.value = cn[+inp.dataset.i] || '';
+    inp.disabled = busy();
+    inp.addEventListener('input', () => {
+      const arr = customNames(); arr[+inp.dataset.i] = inp.value.trim(); saveNames(nameGroup(S.mode), arr);
+      if (!busy()) { resetZones(); }
+    });
+  });
+}
+function resetZones() {
+  const m = MODES[S.mode], cn = customNames();
+  const zname = (name, i) => (m.cat === 'fight' && S.mode !== 'team2') ? name : (cn[i] || name);
   S.zones = m.names.map((name, i) => ({
-    name, color:m.colors[i], count:0, left:0, right:0, energy:100, flash:0, present:false, tr:K.newTracker(),
+    name: zname(name, i), color:m.colors[i], count:0, left:0, right:0, energy:100, flash:0, present:false, tr:K.newTracker(), nextSpawn:0,
   }));
   S.targets = []; S.parts = []; S.bursts = []; S.breaks = []; S.hits = 0; S.result = ''; S.end = null;
+  const tn = (base, c) => c ? `${base} ${c}` : base;
   S.teams = m.team ? (S.mode === 'robot'
-    ? [{ name:'나', color:'#3d8bff', energy:S.energyMax, flash:0 }, { name:'검무봇', color:'#ff3b55', energy:S.energyMax, flash:0 }]
-    : [{ name:'청', color:'#3d8bff', energy:S.energyMax, flash:0 }, { name:'홍', color:'#ff3b55', energy:S.energyMax, flash:0 }]) : null;
+    ? [{ name:cn[0] || '나', color:'#3d8bff', energy:S.energyMax, flash:0 }, { name:'검무봇', color:'#ff3b55', energy:S.energyMax, flash:0 }]
+    : S.mode === 'fight'
+      ? [{ name:tn('청', cn[0]), color:'#3d8bff', energy:S.energyMax, flash:0 }, { name:tn('홍', cn[1]), color:'#ff3b55', energy:S.energyMax, flash:0 }]
+      : [{ name:'청', color:'#3d8bff', energy:S.energyMax, flash:0 }, { name:'홍', color:'#ff3b55', energy:S.energyMax, flash:0 }]) : null;
   S.round = 1; S.wins = sides().map(() => 0); S.history = []; S.roundInfo = null;
   S.robot = S.mode === 'robot' ? { state:'idle', next:0, x:null, t0:0, hitAt:-1e9 } : null;
   S.rs = { block:0, dodge:0, hit:0, counter:0 }; S.hurtAt = -1e9;
 }
+let lastMode = '';
 function applySettings() {
   S.mode = $('mode').value; S.duration = +$('dur').value; S.level = +$('level').value; S.robotLv = +$('robotLv').value;
   S.clock = $('clock').value; S.rounds = +$('rounds').value; S.rest = +$('rest').value; S.energyMax = +$('energy').value;
-  $('levelField').classList.toggle('hidden', S.mode !== 'target'); markOn();
+  S.catMode[MODES[S.mode].cat] = S.mode;
   $('modeinfo').textContent = MODES[S.mode].info;
   $('startBtn').textContent = '▶ 시작';
+  if (S.mode !== lastMode) { lastMode = S.mode; renderNames(); }
   if (!busy()) { S.phase = 'idle'; S.timeLeft = S.duration; resetZones(); }
-  showBest();
+  markOn(); showBest();
 }
+S.catMode = { speed:'solo', fight:'fight', game:'target' }; S.open1 = 'speed'; S.open2 = null;
+try { S.orient = localStorage.getItem('jtaOrient') || 'landscape'; } catch (e) { S.orient = 'landscape'; }
 ['mode','dur','level','robotLv','clock','rounds','rest','energy'].forEach(id => $(id).addEventListener('change', applySettings));
-function wire(box, sel, attr) {
+function wire(box, sel, attr, after) {
   document.querySelectorAll(`#${box} [data-${attr}]`).forEach(b => b.addEventListener('click', () => {
     if (busy()) return;
     $(sel).value = b.dataset[attr]; $(sel).dispatchEvent(new Event('change'));
+    if (after) { after(); markOn(); }
   }));
 }
-wire('modeTiles', 'mode', 'mode'); wire('durChips', 'dur', 'v'); wire('levelChips', 'level', 'v'); wire('oppChips', 'mode', 'v'); wire('robotLvChips', 'robotLv', 'v');
-wire('clockChips', 'clock', 'v'); wire('roundChips', 'rounds', 'v'); wire('restChips', 'rest', 'v'); wire('energyChips', 'energy', 'v');
+wire('speedChips', 'mode', 'm'); wire('fightChips', 'mode', 'm'); wire('gameChips', 'mode', 'm');
+wire('levelChips', 'level', 'v'); wire('robotLvChips', 'robotLv', 'v');
+wire('durChips', 'dur', 'v', () => { S.open2 = null; }); wire('clockChips', 'clock', 'v', () => { S.open2 = null; });
+wire('roundChips', 'rounds', 'v'); wire('restChips', 'rest', 'v'); wire('energyChips', 'energy', 'v');
+// 1줄: 종목 버튼 — 누르면 그 종목으로 바뀌고 고르는 칸이 펼쳐짐
+document.querySelectorAll('#catRow [data-cat]').forEach(b => b.addEventListener('click', () => {
+  if (busy()) return;
+  const c = b.dataset.cat, cur = MODES[S.mode].cat;
+  if (c === cur) S.open1 = S.open1 === c ? null : c;
+  else { S.open1 = c; $('mode').value = S.catMode[c]; $('mode').dispatchEvent(new Event('change')); }
+  markOn();
+}));
+// 2줄: 경기 설정 버튼 — 누르면 고르는 칸이 펼쳐짐
+document.querySelectorAll('#setRow [data-set]').forEach(b => b.addEventListener('click', () => {
+  if (busy()) return;
+  S.open2 = S.open2 === b.dataset.set ? null : b.dataset.set; markOn();
+}));
+function setOrient(o) { if (busy()) return; S.orient = o; try { localStorage.setItem('jtaOrient', o); } catch (e) {} markOn(); status(o === 'portrait' ? '세로 화면: 시작하면 세로 전체화면으로 바뀌어요' : '가로 화면: 시작하면 가로 전체화면으로 바뀌어요'); }
+$('orientV').addEventListener('click', () => setOrient('portrait'));
+$('orientH').addEventListener('click', () => setOrient('landscape'));
 function markOn() {
-  document.querySelectorAll('#modeTiles [data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === S.mode || (b.dataset.mode === 'fight' && S.mode === 'robot')));
-  document.querySelectorAll('#oppChips [data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === S.mode));
-  document.querySelectorAll('#robotLvChips [data-v]').forEach(b => b.classList.toggle('on', +b.dataset.v === S.robotLv));
-  $('robotField').classList.toggle('hidden', S.mode !== 'fight' && S.mode !== 'robot');
+  const m = MODES[S.mode], cat = m.cat;
+  document.querySelectorAll('#catRow [data-cat]').forEach(b => { b.classList.toggle('on', b.dataset.cat === cat); b.classList.toggle('open', S.open1 === b.dataset.cat && b.dataset.cat !== cat); });
+  $('catS_speed').textContent = MODES[S.catMode.speed].label;
+  $('catS_fight').textContent = MODES[S.catMode.fight].label;
+  $('catS_game').textContent = MODES[S.catMode.game].label + ` · ${S.level}단`;
+  ['speed', 'fight', 'game'].forEach(c => $('p_' + c).classList.toggle('hidden', S.open1 !== c));
+  const mark = (box, val, attr = 'v') => document.querySelectorAll(`#${box} [data-${attr}]`).forEach(b => b.classList.toggle('on', b.dataset[attr] === String(val)));
+  mark('speedChips', S.mode, 'm'); mark('fightChips', S.mode, 'm'); mark('gameChips', S.mode, 'm');
+  mark('levelChips', S.level); mark('robotLvChips', S.robotLv);
   $('robotLvBox').classList.toggle('hidden', S.mode !== 'robot');
-  document.querySelectorAll('#durChips [data-v]').forEach(b => b.classList.toggle('on', +b.dataset.v === S.duration));
-  document.querySelectorAll('#levelChips [data-v]').forEach(b => b.classList.toggle('on', +b.dataset.v === S.level));
-  const mark = (box, val) => document.querySelectorAll(`#${box} [data-v]`).forEach(b => b.classList.toggle('on', b.dataset.v === String(val)));
-  mark('clockChips', S.clock); mark('roundChips', S.rounds); mark('restChips', S.rest); mark('energyChips', S.energyMax);
-  $('matchField').classList.toggle('hidden', !COMPETE.includes(S.mode));
+  mark('durChips', S.duration); mark('clockChips', S.clock); mark('roundChips', S.rounds); mark('restChips', S.rest); mark('energyChips', S.energyMax);
+  const comp = COMPETE.includes(S.mode);
+  $('matchField').classList.toggle('hidden', !comp); $('matchNote').classList.toggle('hidden', comp);
   $('restBox').classList.toggle('hidden', S.rounds === 1);
   $('energyBox').classList.toggle('hidden', !ENERGY_MODES.includes(S.mode));
+  $('setS_time').textContent = fmtDur(S.duration);
+  $('setS_clock').textContent = S.clock === 'up' ? '늘어남' : '줄어듬';
+  $('setS_match').textContent = !comp ? '단판' : ({ 1:'단판', 3:'3판 2선승', 5:'5판 3선승' })[S.rounds] + (ENERGY_MODES.includes(S.mode) ? ` · 체력 ${S.energyMax}` : '');
+  document.querySelectorAll('#setRow [data-set]').forEach(b => b.classList.toggle('open', S.open2 === b.dataset.set));
+  ['time', 'clock', 'match'].forEach(k => $('s_' + k).classList.toggle('hidden', S.open2 !== k));
+  $('orientV').classList.toggle('on', S.orient === 'portrait'); $('orientH').classList.toggle('on', S.orient === 'landscape');
+  $('camFront').classList.toggle('on', !!stream && S.facing === 'user'); $('camBack').classList.toggle('on', !!stream && S.facing === 'environment');
+  document.querySelectorAll('#nameBox input').forEach(i => { i.disabled = busy(); });
 }
 
 /* ---------- 최고 기록 ---------- */
 function bestKey() { return 'jtaKickBest_' + S.mode + '_' + S.duration + (S.mode === 'target' ? '_' + S.level : ''); }
+const zCount = () => S.zones[0] ? S.zones[0].count : 0;
 function getBest() { try { return +(localStorage.getItem(bestKey()) || 0); } catch (e) { return 0; } }
 function setBest(v) { try { localStorage.setItem(bestKey(), String(v)); } catch (e) {} }
 function showBest() {
@@ -448,7 +564,7 @@ async function startCam(facing) {
     $('ph').style.display = 'none';
     try { await loadModel(); }
     catch (e) { loading = false; console.error(e); status('몸 인식 프로그램을 받지 못했어요. 인터넷(와이파이)을 확인하고 다시 눌러 주세요.', true); return; }
-    $('startBtn').disabled = false; $('recBtn').disabled = false;
+    $('startBtn').disabled = false; $('recBtn').disabled = false; markOn();
     status('카메라 켜짐 · 전신이 보이게 서 주세요');
   } catch (e) {
     loading = false;
@@ -464,9 +580,9 @@ $('camFront2').addEventListener('click', () => startCam('user'));
 function loadMirror(facing) { try { const v = localStorage.getItem('jtaMirror_' + facing); if (v !== null) return v === '1'; } catch (e) {} return facing === 'user'; }
 function saveMirror() { try { localStorage.setItem('jtaMirror_' + (S.facing || 'user'), S.mirror ? '1' : '0'); } catch (e) {} }
 function showMirror() {
-  $('mirrorBtn').textContent = '🪞 거울 모드: ' + (S.mirror ? '켜짐' : '꺼짐');
+  $('mirrorTxt').textContent = S.mirror ? '거울 켜짐' : '거울 꺼짐';
   $('mirrorBtn2').textContent = S.mirror ? '🪞 거울 ON' : '🪞 거울 OFF';
-  $('mirrorBtn').classList.toggle('dark', S.mirror); $('mirrorBtn2').classList.toggle('go', S.mirror);
+  $('mirrorBtn').classList.toggle('on', S.mirror); $('mirrorBtn2').classList.toggle('go', S.mirror);
 }
 function toggleMirror() {
   if (busy()) { status('게임 중에는 바꿀 수 없어요. 멈춘 뒤에 바꿔 주세요.', true); return; }
@@ -497,7 +613,8 @@ function resetRound() {
 }
 function startGame() {
   if (!landmarker) return;
-  if (!document.fullscreenElement && !$('stage').classList.contains('fs')) goBig(null);
+  if (!document.fullscreenElement && !$('stage').classList.contains('fs')) goBig(S.orient);
+  if (recArmed) startRec();
   audio(); applySettings(); resetZones();
   const now = performance.now();
   S.phase = 'intro'; S.introStart = now; S.introEnd = now + 2300; S.lastSpoken = -1;
@@ -530,7 +647,7 @@ function finishMatch(reason) {
   const text = `종료! ${big} (${score})`;
   S.result = text; status(text); showBest();
   if (reason !== 'stop') { beep(523, 0.25); setTimeout(() => beep(659, 0.25), 220); setTimeout(() => beep(784, 0.25), 440); setTimeout(() => beep(1046, 0.5), 660); say('경기 종료! ' + big.replace('!', '')); }
-  if (rec && rec.state === 'recording') setTimeout(stopRec, 2500);
+  if (rec && rec.state === 'recording') setTimeout(stopRec, reason === 'stop' ? 300 : 3000);
 }
 function endHorn() {   // 경기 종료 버저
   if (!$('sound').checked) return; const a = audio(); if (!a) return;
@@ -554,31 +671,32 @@ function finish(reason) {
   $('stopBtn').disabled = true; $('startBtn').disabled = false;
   const z = S.zones; let text = '';
   if (S.mode === 'solo') {
-    text = `종료! 총 ${z[0].count}번 (왼발 ${z[0].left} · 오른발 ${z[0].right})`;
+    text = `종료! ${z[0].name} 총 ${z[0].count}번 (왼발 ${z[0].left} · 오른발 ${z[0].right})`;
     if (reason !== 'stop' && z[0].count > getBest()) { setBest(z[0].count); text += ' 🏆 신기록!'; }
   } else if (S.mode === 'target') {
-    text = `종료! 격파한 송판 ${S.hits}장`;
-    if (reason !== 'stop' && S.hits > getBest()) { setBest(S.hits); text += ' 🏆 신기록!'; }
+    text = `종료! ${z[0].name} 송판 ${zCount()}장 격파`;
+    if (reason !== 'stop' && zCount() > getBest()) { setBest(zCount()); text += ' 🏆 신기록!'; }
   } else if (S.mode === 'robot') {
     const [a, b] = S.teams, rs = S.rs;
     const win = a.energy > b.energy, draw = a.energy === b.energy;
-    text = `종료! ${draw ? '무승부' : win ? '승리! 검무봇을 이겼어요' : '검무봇 승리 · 다시 도전!'} (나 ${a.energy} : 검무봇 ${b.energy}) · 막기 ${rs.block} · 피하기 ${rs.dodge} · 반격 ${rs.counter} · 맞음 ${rs.hit}`;
-    S.end = { big: draw ? '무승부!' : win ? '승리!' : '검무봇 승리', color: draw ? '#f5efe3' : win ? '#3d8bff' : '#ff3b55',
+    text = `종료! ${draw ? '무승부' : win ? `${a.name} 승리! 검무봇을 이겼어요` : '검무봇 승리 · 다시 도전!'} (${a.name} ${a.energy} : 검무봇 ${b.energy}) · 막기 ${rs.block} · 피하기 ${rs.dodge} · 반격 ${rs.counter} · 맞음 ${rs.hit}`;
+    S.end = { big: draw ? '무승부!' : win ? `${a.name === '나' ? '' : a.name + ' '}승리!` : '검무봇 승리', color: draw ? '#f5efe3' : win ? '#3d8bff' : '#ff3b55',
       sub: `막기 ${rs.block} · 피하기 ${rs.dodge} · 반격 ${rs.counter} · 맞음 ${rs.hit}` };
   } else if (S.teams) {
     const [a, b] = S.teams, w = a.energy === b.energy ? null : (a.energy > b.energy ? a : b);
-    text = w ? `종료! ${w.name} 승리! (청 ${a.energy} : 홍 ${b.energy})` : `종료! 무승부 (${a.energy} : ${b.energy})`;
-    S.end = { big: w ? `${w.name}${S.mode === 'team2' ? '팀' : ''} 승리!` : '무승부!', color: w ? w.color : '#f5efe3', sub: `남은 체력  청 ${a.energy}  ·  홍 ${b.energy}` };
+    const tm = S.mode === 'team2' ? '팀' : '';
+    text = w ? `종료! ${w.name}${tm} 승리! (${a.name} ${a.energy} : ${b.name} ${b.energy})` : `종료! 무승부 (${a.energy} : ${b.energy})`;
+    S.end = { big: w ? `${w.name}${tm} 승리!` : '무승부!', color: w ? w.color : '#f5efe3', sub: `남은 체력  ${a.name} ${a.energy}  ·  ${b.name} ${b.energy}` };
   } else {
-    const max = Math.max(...z.map(x => x.count)), win = z.filter(x => x.count === max);
-    text = '종료! ' + z.map(x => `${x.name} ${x.count}번`).join(' · ') + (win.length > 1 ? ' · 무승부' : ` · ${win[0].name} 승리!`);
+    const max = Math.max(...z.map(x => x.count)), win = z.filter(x => x.count === max), un = isTarget() ? '장' : '번';
+    text = '종료! ' + z.map(x => `${x.name} ${x.count}${un}`).join(' · ') + (win.length > 1 ? ' · 무승부' : ` · ${win[0].name} 승리!`);
     S.end = { big: win.length > 1 ? '무승부!' : `${win[0].name} 승리!`, color: win.length > 1 ? '#f5efe3' : win[0].color,
-      sub: z.map(x => `${x.name} ${x.count}번`).join('  ·  ') };
+      sub: z.map(x => `${x.name} ${x.count}${un}`).join('  ·  ') };
   }
-  if (!S.end) S.end = { big: S.mode === 'target' ? `${S.hits}장 격파!` : `${z[0].count}번 성공!`, color: '#ff5a6e', sub: S.mode === 'target' ? `${S.level}단 · ${S.duration}초` : `왼발 ${z[0].left}  ·  오른발 ${z[0].right}` };
+  if (!S.end) S.end = { big: S.mode === 'target' ? `${zCount()}장 격파!` : `${z[0].count}번 성공!`, color: '#ff5a6e', sub: (S.mode === 'target' ? `${z[0].name} · ${S.level}단 · ${S.duration}초` : `${z[0].name} · 왼발 ${z[0].left}  ·  오른발 ${z[0].right}`) };
   S.result = text; status(text); showBest();
   if (reason !== 'stop') { endHorn(); setTimeout(() => { beep(523, 0.25); setTimeout(() => beep(784, 0.4), 250); }, 1300); say(text.replace(/[🏆]/g, '').replace('종료!', '경기 종료!')); }
-  if (rec && rec.state === 'recording') setTimeout(stopRec, 2000);
+  if (rec && rec.state === 'recording') setTimeout(stopRec, reason === 'stop' ? 300 : 2500);
 }
 $('startBtn').addEventListener('click', startGame);
 $('stopBtn').addEventListener('click', () => { finish('stop'); exitBig(); });
@@ -678,27 +796,31 @@ function addBurst(z, e, now) {
 function flashMsg(t, color) { S.msg = t; S.msgColor = color || '#fff'; S.msgUntil = performance.now() + 900; }
 
 /* ---------- 표적 모드 ---------- */
-function updateTargets(now, dt, aspect, feet) {
+// 칸마다(선수마다) 자기 송판이 날아옴. feetBy[zi] = 그 칸 선수의 발 위치들
+function updateTargets(now, dt, aspect, feetBy) {
   if (S.phase !== 'run') return;
-  if (now >= S.nextSpawn) {
-    const fromLeft = Math.random() < 0.5, speed = 0.16 + S.level * 0.07;
-    S.targets.push({ x: fromLeft ? -0.06 : 1.06, y: 0.28 + Math.random() * 0.32, vx: (fromLeft ? 1 : -1) * speed / aspect,
-      vy: (Math.random() - 0.5) * 0.05, r: 0.075 - S.level * 0.005, born: now, rot: (Math.random() - 0.5) * 0.6, vr: (Math.random() - 0.5) * 1.5 });
-    S.nextSpawn = now + Math.max(700, 2300 - S.level * 300);
-  }
+  const n = nZones(), shrink = n >= 3 ? 0.82 : n === 2 ? 0.92 : 1;
+  S.zones.forEach((z, zi) => {
+    if (now < z.nextSpawn) return;
+    const x0 = zi / n, x1 = (zi + 1) / n, w = x1 - x0, fromLeft = Math.random() < 0.5, speed = (0.16 + S.level * 0.07) * w;
+    S.targets.push({ zone:zi, x: fromLeft ? x0 - 0.04 * w : x1 + 0.04 * w, y: 0.3 + Math.random() * 0.3, vx: (fromLeft ? 1 : -1) * speed / aspect,
+      vy: (Math.random() - 0.5) * 0.05, r: (0.075 - S.level * 0.005) * shrink, born: now, rot: (Math.random() - 0.5) * 0.6, vr: (Math.random() - 0.5) * 1.5, color:z.color });
+    z.nextSpawn = now + Math.max(700, 2300 - S.level * 300);
+  });
   for (const t of S.targets) { t.x += t.vx * dt; t.y += t.vy * dt; t.rot += t.vr * dt; }
   for (const t of S.targets) {
-    for (const f of feet) {
+    for (const f of (feetBy[t.zone] || [])) {
       const dx = (f.x - t.x) * aspect, dy = f.y - t.y;
       if (Math.sqrt(dx * dx + dy * dy) < t.r + 0.03) { t.hit = true; break; }
     }
     if (t.hit) {
-      S.hits++; hitSound(true); S.breaks.push({ x:t.x, y:t.y, r:t.r, rot:t.rot, born:now, dir: t.vx > 0 ? 1 : -1 });
+      const z = S.zones[t.zone]; z.count++; z.flash = now;
+      hitSound(true); S.breaks.push({ x:t.x, y:t.y, r:t.r, rot:t.rot, born:now, dir: t.vx > 0 ? 1 : -1 });
       for (let i = 0; i < 12; i++) { const a = Math.random() * 6.28, v = 0.2 + Math.random() * 0.5;
-        S.parts.push({ x:t.x, y:t.y, vx:Math.cos(a) * v / aspect, vy:Math.sin(a) * v, until: now + 550, color:'#d9a86c' }); }
+        S.parts.push({ x:t.x, y:t.y, vx:Math.cos(a) * v / aspect, vy:Math.sin(a) * v, until: now + 550, color: n > 1 ? z.color : '#d9a86c' }); }
     }
   }
-  S.targets = S.targets.filter(t => !t.hit && t.x > -0.15 && t.x < 1.15);
+  S.targets = S.targets.filter(t => { const x0 = t.zone / n, x1 = (t.zone + 1) / n, m = 0.09 * (x1 - x0) + 0.05; return !t.hit && t.x > x0 - m && t.x < x1 + m; });
 }
 
 /* ---------- 매 프레임 ---------- */
@@ -719,12 +841,12 @@ function loop() {
       S.poses = (res.landmarks || []).map(lm => S.mirror ? lm.map(p => ({ ...p, x: 1 - p.x })) : lm);
     } catch (e) { S.poses = []; }
   }
-  const n = MODES[S.mode].zones;
+  const n = nZones();
   const assigned = K.assignZones(S.poses, n);
   assigned.forEach((lm, i) => {
     const z = S.zones[i]; if (!z) return;
     z.present = !!lm; z.lm = lm;
-    if (lm) K.step(z.tr, lm, aspect, now).forEach(e => onEvent(i, e, now));
+    if (lm && !isTarget()) K.step(z.tr, lm, aspect, now).forEach(e => onEvent(i, e, now));
   });
 
   if (S.robot) robotUpdate(now, aspect);
@@ -746,7 +868,7 @@ function loop() {
     if (now >= S.countEnd) { S.phase = 'run'; S.endAt = now + S.duration * 1000; S.nextSpawn = now + 500; S.lastSpoken = -1; beep(1046, 0.45, 0.4); flashMsg('시작!', '#ff5a6e');
       say(roundsTotal() > 1 ? `${S.round}라운드, 경기 시작!` : '경기 시작!');
       // 준비 중 올라가 있던 발은 내려야 다시 세도록
-      S.zones.forEach(z => { z.tr.L.up = z.tr.R.up = true; });
+      S.zones.forEach((z, zi) => { z.tr.L.up = z.tr.R.up = true; z.nextSpawn = now + 500 + zi * 350; });
       if (S.robot) { S.robot.state = 'idle'; S.robot.next = now + 2200; } }
   }
   if (S.phase === 'run') {
@@ -757,11 +879,12 @@ function loop() {
   } else if (S.phase === 'idle' || S.phase === 'intro' || S.phase === 'count' || S.phase === 'rest') S.timeLeft = S.duration;
 
   // 표적
-  const feet = [];
-  if (S.mode === 'target' && S.zones[0] && S.zones[0].lm) {
-    const lm = S.zones[0].lm; [27, 28, 31, 32].forEach(i => { if (K.vis(lm[i])) feet.push(lm[i]); });
+  const feet = [], feetBy = [];
+  if (isTarget()) {
+    S.zones.forEach((z, zi) => { feetBy[zi] = [];
+      if (z.lm) [27, 28, 31, 32].forEach(i => { if (K.vis(z.lm[i])) { feetBy[zi].push(z.lm[i]); feet.push({ ...z.lm[i], c:z.color }); } }); });
+    updateTargets(now, dt, aspect, feetBy);
   }
-  if (S.mode === 'target') updateTargets(now, dt, aspect, feet);
   S.parts = S.parts.filter(p => p.until > now);
   S.parts.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; });
 
@@ -834,8 +957,8 @@ function guideText() {
   if (S.phase === 'roundEnd') return '라운드 종료!';
   if (S.phase === 'rest') return '쉬는 시간 · 숨 고르기';
   if (S.phase === 'done') return '끝! 다시 하려면 ▶ 시작';
-  if (S.phase === 'run') return ({ solo:'허리 위로 차고, 발을 내렸다 다시!', duel2:'자기 자리(왼쪽·오른쪽)를 지켜요', duel3:'자기 칸을 지켜요',
-    fight:'닿지 않게! 자기 자리에서 발차기', robot:'❗가 뜨면 두 팔 막기 · 옆으로 피하기 · 숙이기!', team2:'닿지 않게! 자기 칸에서 발차기', target:'날아오는 송판을 발로 격파!' })[S.mode];
+  if (S.phase === 'run') return ({ solo:'허리 위로 차고, 발을 내렸다 다시!', duel2:'자기 자리(왼쪽·오른쪽)를 지켜요', duel3:'자기 칸을 지켜요', duel4:'자기 칸을 지켜요',
+    fight:'닿지 않게! 자기 자리에서 발차기', robot:'❗가 뜨면 두 팔 막기 · 옆으로 피하기 · 숙이기!', team2:'닿지 않게! 자기 칸에서 발차기' })[S.mode] || (nZones() > 1 ? '내 칸의 송판을 발로 격파!' : '날아오는 송판을 발로 격파!');
   return landmarker ? '전신이 보이면 ▶ 시작' : '카메라를 켜 주세요';
 }
 function board(x, y, w, h, rot, part) {   // part: 0 전체, -1 왼쪽 반, 1 오른쪽 반
@@ -938,7 +1061,7 @@ function draw(now, aspect, feet) {
   let g = ctx.createLinearGradient(0, 0, 0, H * 0.3); g.addColorStop(0, 'rgba(0,0,0,.45)'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H * 0.3);
   g = ctx.createLinearGradient(0, H * 0.8, 0, H); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.5)'); ctx.fillStyle = g; ctx.fillRect(0, H * 0.8, W, H * 0.2);
 
-  const n = MODES[S.mode].zones;
+  const n = nZones();
   if (n > 1) {   // 구역 경계선 (실선 + 마름모)
     for (let i = 1; i < n; i++) { const x = W * i / n;
       ctx.strokeStyle = 'rgba(245,239,227,.35)'; ctx.lineWidth = u * 0.25; ctx.beginPath(); ctx.moveTo(x, H * 0.32); ctx.lineTo(x, H * 0.92); ctx.stroke();
@@ -976,7 +1099,7 @@ function draw(now, aspect, feet) {
   S.breaks.forEach(b => { const k = (now - b.born) / 700; ctx.save(); ctx.globalAlpha = 1 - k;
     const w = b.r * H * 2.4, h = b.r * H * 1.25, dx = k * u * 14, dy = k * k * u * 25;
     board(b.x * W - dx, b.y * H + dy, w, h, b.rot - k * 1.2, -1); board(b.x * W + dx, b.y * H + dy, w, h, b.rot + k * 1.2, 1); ctx.restore(); });
-  if (S.mode === 'target') feet.forEach(f => { ctx.beginPath(); ctx.arc(f.x * W, f.y * H, u * 2, 0, 6.2832); ctx.lineWidth = u * 0.5; ctx.strokeStyle = '#ff5a6e'; ctx.stroke(); });
+  if (isTarget()) feet.forEach(f => { ctx.beginPath(); ctx.arc(f.x * W, f.y * H, u * 2, 0, 6.2832); ctx.lineWidth = u * 0.5; ctx.strokeStyle = nZones() > 1 ? f.c : '#ff5a6e'; ctx.stroke(); });
   S.parts.forEach(p => { ctx.save(); ctx.translate(p.x * W, p.y * H); ctx.rotate(p.x * 40); ctx.fillStyle = p.color || '#ff5a6e'; ctx.fillRect(-u * 0.6, -u * 0.6, u * 1.2, u * 1.2); ctx.restore(); });
 
   // 얍! 베기 효과
@@ -1001,7 +1124,7 @@ function draw(now, aspect, feet) {
 
   // ── 위쪽: 중계 점수판 띠
   drawBoard(now, W, H, u, land);
-  if (S.mode === 'target' && S.phase === 'idle') centerText('송판이 날아와요! 발로 격파!', u * 6, PAPER, H * 0.5, CRIM);
+  if (isTarget() && S.phase === 'idle') centerText('송판이 날아와요! 발로 격파!', u * 6, PAPER, H * 0.5, CRIM);
   if (now < S.msgUntil && S.phase === 'run') centerText(S.msg, u * 8, '#fff', H * 0.52, S.msgColor);
   if (S.phase === 'intro') drawIntro(now, W, H, u);
   if (S.phase === 'count') drawMedal(now, W, H, u);
@@ -1026,11 +1149,11 @@ function shade(hex, k) {   // 색을 어둡게(k<1)/밝게(k>1)
 }
 // 점수판에 올릴 칸들
 function boardSides() {
-  if (S.mode === 'solo') return [{ name:'나', sub:'발차기', val:S.zones[0] ? S.zones[0].count : 0, color:'#ff5a6e', flash:S.zones[0] && performance.now() - S.zones[0].flash < 140 },
+  if (S.mode === 'solo') return [{ name:S.zones[0] ? S.zones[0].name : '1번 선수', sub:'발차기', val:S.zones[0] ? S.zones[0].count : 0, color:'#ff5a6e', flash:S.zones[0] && performance.now() - S.zones[0].flash < 140 },
                                   { name:'최고', sub:'이 기기 기록', val:getBest(), color:'#5b6170' }];
-  if (S.mode === 'target') return [{ name:'나', sub:'격파', val:S.hits, color:'#ff5a6e' }, { name:`${S.level}단`, sub:'송판 속도', val:getBest(), color:'#5b6170', valSub:'최고' }];
+  if (S.mode === 'target') return [{ name:S.zones[0] ? S.zones[0].name : '1번 선수', sub:'격파', val:zCount(), color:'#ff5a6e', flash:S.zones[0] && performance.now() - S.zones[0].flash < 160 }, { name:`${S.level}단`, sub:'송판 속도', val:getBest(), color:'#5b6170', valSub:'최고' }];
   const now = performance.now();
-  return sides().map((s, i) => ({ name: s.name + (S.teams && S.mode === 'team2' ? '팀' : ''), sub: S.teams ? '체력' : '발차기', val: S.teams ? s.energy : s.count,
+  return sides().map((s, i) => ({ name: s.name + (S.teams && S.mode === 'team2' ? '팀' : ''), sub: S.teams ? '체력' : isTarget() ? '격파' : '발차기', val: S.teams ? s.energy : s.count,
     color: s.color, flash: now - s.flash < 160, wins: S.wins[i] || 0, team: S.teams ? s : null }));
 }
 function drawBoard(now, W, H, u, land) {
@@ -1061,7 +1184,10 @@ function drawBoard(now, W, H, u, land) {
     // 이름 (바깥쪽)
     const nx = isLeft ? x0 + u * 2.5 : x1 - u * 2.5;
     ctx.textAlign = isLeft ? 'left' : 'right'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = '#fff';
-    ctx.font = `400 ${BH * 0.48}px ${FT}`; ctx.fillText(s.name, nx, BH * 0.58);
+    const room = Math.max(u * 4, (x1 - x0) - sl - bw - u * 5);
+    ctx.font = `400 ${BH * 0.48}px ${FT}`; const nw = ctx.measureText(s.name).width;
+    if (nw > room) ctx.font = `400 ${BH * 0.48 * room / nw}px ${FT}`;
+    ctx.fillText(s.name, nx, BH * 0.58);
     ctx.font = `700 ${BH * 0.17}px ${FN}`; ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.fillText(s.valSub || s.sub, nx, BH * 0.85);
     // 이긴 라운드 마름모
     if (roundsTotal() > 1 && s.wins !== undefined) {
@@ -1088,7 +1214,7 @@ function drawBoard(now, W, H, u, land) {
   poly(pts); ctx.lineWidth = u * 0.5; ctx.strokeStyle = GOLD; ctx.stroke();
   ctx.fillStyle = GOLD; ctx.fillRect(cx - u * 4, PH - u * 0.25, u * 8, u * 0.5);
   ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-  const top = COMPETE.includes(S.mode) ? (roundsTotal() > 1 ? `${S.round}R  /  ${roundsTotal()}판 ${winsNeed()}선승` : '단판 승부') : ({ solo:'1인 Speed Kick', target:'송판 격파' })[S.mode];
+  const top = COMPETE.includes(S.mode) ? (roundsTotal() > 1 ? `${S.round}R  /  ${roundsTotal()}판 ${winsNeed()}선승` : '단판 승부') : ({ solo:'스피드킥', target:'송판 격파' })[S.mode];
   ctx.font = `700 ${u * 2.5}px ${FN}`; ctx.fillStyle = GOLD; ctx.fillText(top, cx, u * 3.6);
   const shown = S.clock === 'up' ? S.duration - S.timeLeft : S.timeLeft;
   const urgent = S.phase === 'run' && S.timeLeft <= 10;
@@ -1135,7 +1261,7 @@ function drawIntro(now, W, H, u) {
   const pk = ease((t - 0.3) / 0.2), sc = pk < 1 ? 0.4 + pk * 0.75 : 1.15 - 0.15 * ease((t - 0.5) / 0.2);
   if (pk > 0) {
     ctx.save(); ctx.translate(cx, cy); ctx.scale(sc, sc);
-    const big = sd ? 'VS' : (S.mode === 'solo' ? '1인 Speed Kick' : '송판 격파');
+    const big = sd ? 'VS' : (S.mode === 'solo' ? '스피드킥' : '송판 격파');
     ctx.font = `400 ${u * (sd ? 17 : 11)}px ${FT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
     ctx.lineWidth = u * 1.6; ctx.strokeStyle = '#1a1206'; ctx.strokeText(big, 0, 0);
     const tg = ctx.createLinearGradient(0, -u * 8, 0, u * 8); tg.addColorStop(0, '#fff6d8'); tg.addColorStop(1, GOLD);
@@ -1145,9 +1271,15 @@ function drawIntro(now, W, H, u) {
   if (sd) {
     const nk = ease((t - 0.35) / 0.25);
     ctx.font = `400 ${u * 10}px ${FT}`; ctx.textAlign = 'center';
-    const nameL = sd.length > 2 ? sd.slice(0, sd.length - 1).map(s => s.name).join('·') : sd[0].name;
-    centerAt(nameL, -W * 0.2 + (W * 0.2 + W * 0.2) * nk, cy + u * 3, u * 10, cA);
-    centerAt(sd[sd.length - 1].name, W * 1.2 - (W * 0.2 + W * 0.2) * nk, cy + u * 3, u * 10, cB);
+    if (sd.length > 2) {   // 3·4인: 이름을 위아래 두 줄로
+      const h = Math.ceil(sd.length / 2), L = sd.slice(0, h), Rr = sd.slice(h), fs = u * 6;
+      L.forEach((s, k) => centerAt(s.name, -W * 0.2 + W * 0.42 * nk, cy - u * 4 + k * fs * 1.25, fs, s.color));
+      Rr.forEach((s, k) => centerAt(s.name, W * 1.2 - W * 0.42 * nk, cy - u * 4 + k * fs * 1.25, fs, s.color));
+    } else {
+      const fs = u * (Math.max(sd[0].name.length, sd[1].name.length) > 3 ? 7 : 10);
+      centerAt(sd[0].name, -W * 0.2 + (W * 0.2 + W * 0.2) * nk, cy + u * 3, fs, cA);
+      centerAt(sd[1].name, W * 1.2 - (W * 0.2 + W * 0.2) * nk, cy + u * 3, fs, cB);
+    }
   }
   const lk = ease((t - 0.5) / 0.2);
   if (lk > 0) {
@@ -1239,13 +1371,11 @@ function exitBig() {
   try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) {}
   try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (e) {}
 }
-$('bigV').addEventListener('click', () => goBig('portrait'));
-$('bigH').addEventListener('click', () => goBig('landscape'));
 $('closeBig').addEventListener('click', exitBig);
 document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) $('stage').classList.remove('fs'); });
 
 /* ---------- 녹화 ---------- */
-let rec = null, chunks = [];
+let rec = null, chunks = []; let recArmed = false;
 function pickType() {
   const list = ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
   for (const t of list) if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) return t;
@@ -1277,15 +1407,30 @@ async function startRec() {
     const a = document.createElement('a'); a.href = url; a.download = name; a.textContent = '⬇ 녹화 영상 다시 저장하기';
     $('recArea').innerHTML = ''; $('recArea').appendChild(a);
     try { a.click(); } catch (e) {}
-    $('recBtn').textContent = '● 녹화'; $('recBtn').classList.add('red');
-    stopMic(); status('녹화 영상을 저장했어요. (안 보이면 아래 "다시 저장하기"를 누르세요)');
+    showRecBtn();
+    stopMic(); status('녹화 영상을 자동으로 저장했어요. (안 보이면 아래 "다시 저장하기"를 누르세요)' + (recArmed ? ' · 다음 경기도 녹화 대기 중' : ''));
   };
   rec.start(500);
-  $('recBtn').textContent = '■ 녹화 중지'; $('recBtn').classList.remove('red');
+  showRecBtn();
 }
 function stopRec() { if (rec && rec.state === 'recording') rec.stop(); }
 function stopMic() { try { if (micSrc) micSrc.disconnect(); } catch (e) {} micSrc = null; if (mic) mic.getTracks().forEach(t => t.stop()); mic = null; }
-$('recBtn').addEventListener('click', () => { if (rec && rec.state === 'recording') stopRec(); else startRec(); });
+// 녹화 예약: 누르면 '녹화 대기' → ▶ 시작 순간 녹화 시작 → 경기 끝/멈춤 때 자동 저장
+function showRecBtn() {
+  const live = !!(rec && rec.state === 'recording'), b = $('recBtn');
+  b.classList.toggle('live', live); b.classList.toggle('armed', recArmed && !live);
+  b.textContent = live ? '● 녹화 중' : recArmed ? '● 녹화 대기' : '● 녹화';
+}
+$('recBtn').addEventListener('click', () => {
+  if (rec && rec.state === 'recording') { recArmed = false; stopRec(); showRecBtn(); return; }
+  recArmed = !recArmed; showRecBtn();
+  if (recArmed) {
+    // 마이크 허용을 미리 물어 둠 (시작할 때 끊기지 않게)
+    try { navigator.mediaDevices.getUserMedia({ audio:true }).then(st => st.getTracks().forEach(t => t.stop())).catch(() => {}); } catch (e) {}
+    if (busy()) startRec();
+    else status('● 녹화 대기 · ▶ 시작을 누르면 녹화가 시작되고, 경기가 끝나거나 멈추면 자동으로 저장돼요');
+  } else status('녹화 예약을 껐어요');
+});
 
 applySettings();
 showMirror();
