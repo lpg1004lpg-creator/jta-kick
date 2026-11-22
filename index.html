@@ -211,6 +211,12 @@
     <button class="cam" id="orientH"><div class="ic">🖥️</div>가로</button>
     <button class="cam" id="mirrorBtn"><div class="ic">🪞</div><span id="mirrorTxt">거울</span></button>
   </div>
+  <div class="panel" style="margin-top:10px">
+    <div class="sub2">발차기 인식 (빨리 차는데 안 세지면 오른쪽으로)</div>
+    <div class="chips" id="senseChips">
+      <button class="chip" data-v="1">보통</button><button class="chip" data-v="2">빠르게 (추천)</button><button class="chip" data-v="3">아주 빠르게</button>
+    </div>
+  </div>
 
   <div class="stage" id="stage">
     <div class="view">
@@ -253,13 +259,19 @@
 (function (root) {
   // MediaPipe 몸 좌표 번호
   var P = { NOSE:0, LSH:11, RSH:12, LHIP:23, RHIP:24, LKNEE:25, RKNEE:26, LANK:27, RANK:28, LFOOT:31, RFOOT:32 };
-  var VIS = 0.45;           // 이 정도 이상 보여야 믿음
-  var UP_RATIO = 0.12;      // 엉덩이보다 다리길이 12% 아래까지 올라오면 "허리 높이"
-  var DOWN_RATIO = 0.50;    // 다리길이 50% 아래로 내려가야 다음 발차기 준비
-  var CONFIRM_FRAMES = 2;   // 2프레임 연속이어야 인정(잡음 방지)
-  var MIN_GAP_MS = 250;     // 같은 발 연속 인정 최소 간격
+  var VIS = 0.45;           // 몸통(엉덩이·어깨)은 이 정도 이상 보여야 믿음
+  // 발차기 인식 단계: 1 보통 / 2 빠르게 / 3 아주 빠르게
+  //  up: 발이 엉덩이보다 다리길이의 몇 %까지 올라오면 인정 / down: 이만큼 내려와야 다음 발차기
+  //  confirm: 몇 장면 연속 / gap: 같은 발 최소 간격(ms) / fvis: 흐린 발도 믿는 정도 / knee: 무릎만 올라와도 인정(발이 흐릴 때)
+  var LEVELS = {
+    1: { up:0.12, down:0.50, confirm:2, gap:250, fvis:0.45, knee:null },
+    2: { up:0.20, down:0.42, confirm:1, gap:170, fvis:0.25, knee:0.12 },
+    3: { up:0.28, down:0.38, confirm:1, gap:130, fvis:0.15, knee:0.22 },
+  };
+  var T = LEVELS[2];
 
   function vis(p) { return p && (p.visibility === undefined || p.visibility >= VIS); }
+  function visF(p) { return p && (p.visibility === undefined || p.visibility >= T.fvis); }
   function dist(a, b, aspect) {
     var dx = (a.x - b.x) * aspect, dy = a.y - b.y;
     return Math.sqrt(dx * dx + dy * dy);
@@ -273,7 +285,7 @@
     var ev = [];
     if (!lm || !vis(lm[P.LHIP]) || !vis(lm[P.RHIP])) return ev;
     var hipY = (lm[P.LHIP].y + lm[P.RHIP].y) / 2;
-    // 다리 길이(엉덩이-무릎 + 무릎-발목), 서서히 갱신
+    // 다리 길이(엉덩이-무릎 + 무릎-발목), 서서히 갱신 (서 있을 때 기준)
     var lens = [];
     if (vis(lm[P.LKNEE]) && vis(lm[P.LANK])) lens.push(dist(lm[P.LHIP], lm[P.LKNEE], aspect) + dist(lm[P.LKNEE], lm[P.LANK], aspect));
     if (vis(lm[P.RKNEE]) && vis(lm[P.RANK])) lens.push(dist(lm[P.RHIP], lm[P.RKNEE], aspect) + dist(lm[P.RKNEE], lm[P.RANK], aspect));
@@ -283,30 +295,34 @@
     }
     if (!tr.legLen) return ev;
     var shY = (vis(lm[P.LSH]) && vis(lm[P.RSH])) ? (lm[P.LSH].y + lm[P.RSH].y) / 2 : hipY - tr.legLen * 0.6;
-    var upY = hipY + tr.legLen * UP_RATIO;
-    var downY = hipY + tr.legLen * DOWN_RATIO;
-    var sides = [['L', P.LANK, P.LFOOT], ['R', P.RANK, P.RFOOT]];
+    var upY = hipY + tr.legLen * T.up;
+    var downY = hipY + tr.legLen * T.down;
+    var sides = [['L', P.LANK, P.LFOOT, P.LKNEE], ['R', P.RANK, P.RFOOT, P.RKNEE]];
     for (var i = 0; i < 2; i++) {
       var s = sides[i][0], leg = tr[s];
-      var a = lm[sides[i][1]], f = lm[sides[i][2]];
-      var pts = [a, f].filter(vis);
-      if (!pts.length) { leg.cand = 0; continue; }
-      var y = Math.min.apply(null, pts.map(function (p) { return p.y; })); // 발끝/발목 중 높은 쪽
+      var a = lm[sides[i][1]], f = lm[sides[i][2]], kn = lm[sides[i][3]];
+      var pts = [a, f].filter(visF);
+      var y = pts.length ? Math.min.apply(null, pts.map(function (p) { return p.y; })) : null; // 발끝/발목 중 높은 쪽
+      var kneeOk = kn && (kn.visibility === undefined || kn.visibility >= 0.3);
+      var kneeHigh = T.knee !== null && kneeOk && kn.y < hipY + tr.legLen * T.knee;   // 빠른 발차기: 발이 흐려도 무릎이 높으면 인정
+      var high = (y !== null && y < upY) || kneeHigh;
       if (!leg.up) {
-        if (y < upY) {
+        if (high) {
           leg.cand++;
-          if (leg.cand >= CONFIRM_FRAMES && now - leg.last >= MIN_GAP_MS) {
-            leg.up = true; leg.cand = 0; leg.last = now; leg.face = y < shY;
+          if (leg.cand >= T.confirm && now - leg.last >= T.gap) {
+            leg.up = true; leg.cand = 0; leg.last = now; leg.face = y !== null && y < shY;
             ev.push({ side:s, type:'kick', face:leg.face });
           }
         } else leg.cand = 0;
       } else {
-        if (!leg.face && y < shY) { leg.face = true; ev.push({ side:s, type:'face' }); }
-        if (y > downY) { leg.up = false; leg.cand = 0; leg.face = false; }
+        if (!leg.face && y !== null && y < shY) { leg.face = true; ev.push({ side:s, type:'face' }); }
+        var down = y !== null ? y > downY : (kneeOk && kn.y > hipY + tr.legLen * 0.38);
+        if (down && !kneeHigh) { leg.up = false; leg.cand = 0; leg.face = false; }
       }
     }
     return ev;
   }
+  function setLevel(n) { T = LEVELS[n] || LEVELS[2]; root.KickCore.T = T; root.KickCore.level = LEVELS[n] ? +n : 2; }
 
   function hipCenterX(lm) {
     if (!lm) return null;
@@ -332,7 +348,7 @@
   }
 
   root.KickCore = { P:P, step:step, newTracker:newTracker, assignZones:assignZones, hipCenterX:hipCenterX,
-    vis:vis, UP_RATIO:UP_RATIO, DOWN_RATIO:DOWN_RATIO };
+    vis:vis, setLevel:setLevel, LEVELS:LEVELS, T:T, level:2 };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
 
@@ -434,7 +450,7 @@ function applySettings() {
   $('startBtn').textContent = '▶ 시작';
   if (S.mode !== lastMode) { lastMode = S.mode; renderNames(); }
   if (!busy()) { S.phase = 'idle'; S.timeLeft = S.duration; resetZones(); }
-  markOn(); showBest();
+  setPoseCount(); markOn(); showBest();
 }
 S.catMode = { speed:'solo', fight:'fight', game:'target' }; S.open1 = 'speed'; S.open2 = null;
 try { S.orient = localStorage.getItem('jtaOrient') || 'landscape'; } catch (e) { S.orient = 'landscape'; }
@@ -463,6 +479,13 @@ document.querySelectorAll('#setRow [data-set]').forEach(b => b.addEventListener(
   if (busy()) return;
   S.open2 = S.open2 === b.dataset.set ? null : b.dataset.set; markOn();
 }));
+// 발차기 인식 단계 (기기에 기억)
+try { K.setLevel(+(localStorage.getItem('jtaSense') || 2)); } catch (e) { K.setLevel(2); }
+document.querySelectorAll('#senseChips [data-v]').forEach(b => b.addEventListener('click', () => {
+  K.setLevel(+b.dataset.v); try { localStorage.setItem('jtaSense', b.dataset.v); } catch (e) {}
+  markOn();
+  status(({ 1:'발차기 인식: 보통 — 허리 높이까지 확실히 올라와야 세요', 2:'발차기 인식: 빠르게 — 빠른 발차기도 잘 세요 (추천)', 3:'발차기 인식: 아주 빠르게 — 조금만 올라와도 세요 (너무 많이 세지면 한 단계 낮추세요)' })[K.level]);
+}));
 function setOrient(o) { if (busy()) return; S.orient = o; try { localStorage.setItem('jtaOrient', o); } catch (e) {} markOn(); status(o === 'portrait' ? '세로 화면: 시작하면 세로 전체화면으로 바뀌어요' : '가로 화면: 시작하면 가로 전체화면으로 바뀌어요'); }
 $('orientV').addEventListener('click', () => setOrient('portrait'));
 $('orientH').addEventListener('click', () => setOrient('landscape'));
@@ -490,6 +513,7 @@ function markOn() {
   $('orientV').classList.toggle('on', S.orient === 'portrait'); $('orientH').classList.toggle('on', S.orient === 'landscape');
   $('camFront').classList.toggle('on', !!stream && S.facing === 'user'); $('camBack').classList.toggle('on', !!stream && S.facing === 'environment');
   document.querySelectorAll('#nameBox input').forEach(i => { i.disabled = busy(); });
+  mark('senseChips', K.level);
 }
 
 /* ---------- 최고 기록 ---------- */
@@ -549,9 +573,16 @@ async function loadModel() {
   });
   try { landmarker = await PoseLandmarker.createFromOptions(files, opts('GPU')); }
   catch (e) { landmarker = await PoseLandmarker.createFromOptions(files, opts('CPU')); }
-  loading = false;
+  loading = false; setPoseCount();
 }
 
+// 찾을 사람 수를 종목 인원에 맞춤 (혼자 하는 종목은 1명만 찾아서 더 빠르게)
+let poseN = 4;
+function setPoseCount() {
+  const n = Math.max(1, Math.min(4, nZones()));
+  if (!landmarker || !landmarker.setOptions || n === poseN) return;
+  poseN = n; try { const r = landmarker.setOptions({ numPoses:n }); if (r && r.catch) r.catch(() => {}); } catch (e) {}
+}
 /* ---------- 카메라 ---------- */
 async function startCam(facing) {
   audio();
@@ -838,6 +869,7 @@ function loop() {
     lastVideoTime = video.currentTime;
     try {
       const res = landmarker.detectForVideo(video, now);
+      S.fpsN = (S.fpsN || 0) + 1; if (now - (S.fpsT || 0) >= 1000) { S.fps = Math.round(S.fpsN * 1000 / (now - (S.fpsT || now - 1000))); S.fpsN = 0; S.fpsT = now; }
       S.poses = (res.landmarks || []).map(lm => S.mirror ? lm.map(p => ({ ...p, x: 1 - p.x })) : lm);
     } catch (e) { S.poses = []; }
   }
@@ -1077,7 +1109,7 @@ function draw(now, aspect, feet) {
     if (K.vis(lm[0])) { ctx.beginPath(); ctx.arc(lm[0].x * W, lm[0].y * H, u * 2, 0, 6.2832); ctx.lineWidth = u * 0.5; ctx.strokeStyle = z.color; ctx.stroke(); }
     [27, 28].forEach(i => { if (K.vis(lm[i])) { ctx.beginPath(); ctx.arc(lm[i].x * W, lm[i].y * H, u * 1.1, 0, 6.2832); ctx.fillStyle = '#fff'; ctx.fill(); } });
     if (z.tr.legLen && K.vis(lm[23]) && K.vis(lm[24])) {
-      const y = ((lm[23].y + lm[24].y) / 2 + z.tr.legLen * K.UP_RATIO) * H, cx = (lm[23].x + lm[24].x) / 2 * W;
+      const y = ((lm[23].y + lm[24].y) / 2 + z.tr.legLen * K.T.up) * H, cx = (lm[23].x + lm[24].x) / 2 * W;
       ctx.strokeStyle = 'rgba(245,239,227,.85)'; ctx.lineWidth = u * 0.35;
       ctx.beginPath(); ctx.moveTo(cx - u * 10, y); ctx.lineTo(cx + u * 10, y); ctx.stroke();
       ctx.fillStyle = 'rgba(245,239,227,.85)'; ctx.font = `700 ${u * 2.2}px ${FN}`; ctx.textAlign = 'left'; ctx.fillText('허리선', cx + u * 10.8, y + u * 0.8);
@@ -1134,7 +1166,7 @@ function draw(now, aspect, feet) {
 
   // 아래: 인식 상태 · 안내 · 이름
   const ch = u * 4.6, cy = H - ch - u * 2.5;
-  const ppl = landmarker ? (S.poses.length ? `● ${S.poses.length}명 인식` : '○ 사람을 찾는 중') : '○ 카메라 대기';
+  const ppl = landmarker ? (S.poses.length ? `● ${S.poses.length}명 인식 · 초당 ${S.fps || 0}회` : '○ 사람을 찾는 중') : '○ 카메라 대기';
   const w1 = chipText(ppl, u * 3, cy, ch, S.poses.length ? '#5fe0b0' : '#cbbfa8', 'left');
   chipText(guideText(), u * 3 + w1 + u * 1.5, cy, ch, PAPER, 'left');
   ctx.font = `400 ${u * 3.2}px ${FT}`; ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(245,239,227,.8)';
