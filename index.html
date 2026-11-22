@@ -42,6 +42,7 @@
   .chip.on{background:var(--ink);color:var(--paper)}
   .info{background:#fffdf8;border-left:5px solid var(--jade);border-radius:6px 12px 12px 6px;padding:11px 14px;font-size:15px;line-height:1.65;color:var(--ink2);margin-top:12px}
   .hidden{display:none!important}
+  .sub2{font-size:14px;font-weight:700;color:var(--ink2);margin:12px 0 6px}
   /* 무대 */
   .stage{position:relative;margin-top:12px;background:#0d0c0b;border-radius:18px;overflow:hidden;border:3px solid var(--ink);display:flex;flex-direction:column;box-shadow:6px 6px 0 var(--crimson)}
   .stage .view{position:relative}
@@ -117,8 +118,36 @@
   <div class="chips" id="durChips">
     <button class="chip" data-v="20">20초</button><button class="chip" data-v="30">30초</button><button class="chip" data-v="40">40초</button>
     <button class="chip" data-v="50">50초</button><button class="chip" data-v="60">1분</button>
+    <button class="chip" data-v="90">1분 30초</button><button class="chip" data-v="120">2분</button>
   </div>
-  <select id="dur" class="hidden"><option value="20">20</option><option value="30" selected>30</option><option value="40">40</option><option value="50">50</option><option value="60">60</option></select>
+  <select id="dur" class="hidden"><option value="20">20</option><option value="30" selected>30</option><option value="40">40</option><option value="50">50</option><option value="60">60</option><option value="90">90</option><option value="120">120</option></select>
+  <div class="sub2">시계 보이는 방식</div>
+  <div class="chips" id="clockChips">
+    <button class="chip" data-v="down">⏳ 줄어드는 시계</button><button class="chip" data-v="up">⏱️ 늘어나는 시계</button>
+  </div>
+  <select id="clock" class="hidden"><option value="down" selected>down</option><option value="up">up</option></select>
+  <div id="matchField" class="hidden">
+    <h2><span class="n">+</span>경기 방식</h2>
+    <div class="sub2">라운드</div>
+    <div class="chips" id="roundChips">
+      <button class="chip" data-v="1">단판</button><button class="chip" data-v="3">3판 2선승</button><button class="chip" data-v="5">5판 3선승</button>
+    </div>
+    <select id="rounds" class="hidden"><option value="1" selected>1</option><option value="3">3</option><option value="5">5</option></select>
+    <div id="restBox">
+      <div class="sub2">라운드 사이 쉬는 시간</div>
+      <div class="chips" id="restChips">
+        <button class="chip" data-v="10">10초</button><button class="chip" data-v="20">20초</button><button class="chip" data-v="30">30초</button>
+      </div>
+      <select id="rest" class="hidden"><option value="10">10</option><option value="20" selected>20</option><option value="30">30</option></select>
+    </div>
+    <div id="energyBox">
+      <div class="sub2">시작 체력</div>
+      <div class="chips" id="energyChips">
+        <button class="chip" data-v="100">100</button><button class="chip" data-v="200">200</button><button class="chip" data-v="300">300</button>
+      </div>
+      <select id="energy" class="hidden"><option value="100" selected>100</option><option value="200">200</option><option value="300">300</option></select>
+    </div>
+  </div>
   <div id="levelField" class="hidden">
     <h2><span class="n">+</span>송판 속도</h2>
     <div class="chips" id="levelChips">
@@ -285,7 +314,7 @@ const MODES = {
 };
 
 const S = {
-  mode:'solo', duration:30, level:3, mirror:true,
+  mode:'solo', duration:30, level:3, mirror:true, clock:'down', rounds:1, rest:20, energyMax:100, round:1, wins:[],
   phase:'idle',      // idle | count | run | done
   countEnd:0, endAt:0, timeLeft:30, lastSpoken:-1,
   zones:[], poses:[], targets:[], parts:[], bursts:[], breaks:[], hits:0, nextSpawn:0, end:null,
@@ -293,6 +322,13 @@ const S = {
 };
 
 let landmarker = null, stream = null, lastVideoTime = -1, loading = false;
+const COMPETE = ['duel2', 'duel3', 'fight', 'robot', 'team2'];   // 라운드 경기가 되는 모드
+const ENERGY_MODES = ['fight', 'robot', 'team2'];
+const busy = () => ['intro', 'count', 'run', 'roundEnd', 'rest'].includes(S.phase);
+const roundsTotal = () => COMPETE.includes(S.mode) ? S.rounds : 1;
+const winsNeed = () => Math.ceil(roundsTotal() / 2);
+function fmtDur(sec) { const m = Math.floor(sec / 60), s = sec % 60; return m ? (s ? `${m}분 ${s}초` : `${m}분`) : `${s}초`; }
+function fmtClock(sec) { sec = Math.max(0, Math.ceil(sec)); return `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`; }
 
 /* ---------- 화면 설정 ---------- */
 function resetZones() {
@@ -302,27 +338,30 @@ function resetZones() {
   }));
   S.targets = []; S.parts = []; S.bursts = []; S.breaks = []; S.hits = 0; S.result = ''; S.end = null;
   S.teams = m.team ? (S.mode === 'robot'
-    ? [{ name:'나', color:'#3d8bff', energy:100, flash:0 }, { name:'검무봇', color:'#ff3b55', energy:100, flash:0 }]
-    : [{ name:'청', color:'#2f8cff', energy:100, flash:0 }, { name:'홍', color:'#ff4d5e', energy:100, flash:0 }]) : null;
+    ? [{ name:'나', color:'#3d8bff', energy:S.energyMax, flash:0 }, { name:'검무봇', color:'#ff3b55', energy:S.energyMax, flash:0 }]
+    : [{ name:'청', color:'#3d8bff', energy:S.energyMax, flash:0 }, { name:'홍', color:'#ff3b55', energy:S.energyMax, flash:0 }]) : null;
+  S.round = 1; S.wins = sides().map(() => 0); S.history = []; S.roundInfo = null;
   S.robot = S.mode === 'robot' ? { state:'idle', next:0, x:null, t0:0, hitAt:-1e9 } : null;
   S.rs = { block:0, dodge:0, hit:0, counter:0 }; S.hurtAt = -1e9;
 }
 function applySettings() {
   S.mode = $('mode').value; S.duration = +$('dur').value; S.level = +$('level').value; S.robotLv = +$('robotLv').value;
+  S.clock = $('clock').value; S.rounds = +$('rounds').value; S.rest = +$('rest').value; S.energyMax = +$('energy').value;
   $('levelField').classList.toggle('hidden', S.mode !== 'target'); markOn();
   $('modeinfo').textContent = MODES[S.mode].info;
-  $('startBtn').textContent = '▶ 시작 ' + (S.duration === 60 ? '1분' : S.duration + '초');
-  if (S.phase !== 'run' && S.phase !== 'count') { S.phase = 'idle'; S.timeLeft = S.duration; resetZones(); }
+  $('startBtn').textContent = '▶ 시작';
+  if (!busy()) { S.phase = 'idle'; S.timeLeft = S.duration; resetZones(); }
   showBest();
 }
-['mode','dur','level','robotLv'].forEach(id => $(id).addEventListener('change', applySettings));
+['mode','dur','level','robotLv','clock','rounds','rest','energy'].forEach(id => $(id).addEventListener('change', applySettings));
 function wire(box, sel, attr) {
   document.querySelectorAll(`#${box} [data-${attr}]`).forEach(b => b.addEventListener('click', () => {
-    if (S.phase === 'run' || S.phase === 'count') return;
+    if (busy()) return;
     $(sel).value = b.dataset[attr]; $(sel).dispatchEvent(new Event('change'));
   }));
 }
 wire('modeTiles', 'mode', 'mode'); wire('durChips', 'dur', 'v'); wire('levelChips', 'level', 'v'); wire('oppChips', 'mode', 'v'); wire('robotLvChips', 'robotLv', 'v');
+wire('clockChips', 'clock', 'v'); wire('roundChips', 'rounds', 'v'); wire('restChips', 'rest', 'v'); wire('energyChips', 'energy', 'v');
 function markOn() {
   document.querySelectorAll('#modeTiles [data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === S.mode || (b.dataset.mode === 'fight' && S.mode === 'robot')));
   document.querySelectorAll('#oppChips [data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === S.mode));
@@ -331,6 +370,11 @@ function markOn() {
   $('robotLvBox').classList.toggle('hidden', S.mode !== 'robot');
   document.querySelectorAll('#durChips [data-v]').forEach(b => b.classList.toggle('on', +b.dataset.v === S.duration));
   document.querySelectorAll('#levelChips [data-v]').forEach(b => b.classList.toggle('on', +b.dataset.v === S.level));
+  const mark = (box, val) => document.querySelectorAll(`#${box} [data-v]`).forEach(b => b.classList.toggle('on', b.dataset.v === String(val)));
+  mark('clockChips', S.clock); mark('roundChips', S.rounds); mark('restChips', S.rest); mark('energyChips', S.energyMax);
+  $('matchField').classList.toggle('hidden', !COMPETE.includes(S.mode));
+  $('restBox').classList.toggle('hidden', S.rounds === 1);
+  $('energyBox').classList.toggle('hidden', !ENERGY_MODES.includes(S.mode));
 }
 
 /* ---------- 최고 기록 ---------- */
@@ -425,7 +469,7 @@ function showMirror() {
   $('mirrorBtn').classList.toggle('dark', S.mirror); $('mirrorBtn2').classList.toggle('go', S.mirror);
 }
 function toggleMirror() {
-  if (S.phase === 'run' || S.phase === 'count') { status('게임 중에는 바꿀 수 없어요. 멈춘 뒤에 바꿔 주세요.', true); return; }
+  if (busy()) { status('게임 중에는 바꿀 수 없어요. 멈춘 뒤에 바꿔 주세요.', true); return; }
   S.mirror = !S.mirror; saveMirror(); showMirror();
   resetZones();   // 좌우가 바뀌므로 자리·기록을 새로 시작
   flashMsg(S.mirror ? '거울 모드 켜짐' : '거울 모드 꺼짐', '#ff5a6e');
@@ -436,15 +480,68 @@ $('mirrorBtn2').addEventListener('click', toggleMirror);
 $('camBack2').addEventListener('click', () => startCam('environment'));
 
 /* ---------- 시작 / 중지 ---------- */
+// 겨루는 쪽들: 체력 모드는 팀(청·홍 / 나·검무봇), 횟수 모드는 각 선수
+function sides() { return S.teams ? S.teams : S.zones; }
+function sideValue(s) { return S.teams ? s.energy : s.count; }
+function roundWinner() {
+  const sd = sides(), vals = sd.map(sideValue), max = Math.max(...vals);
+  const top = vals.map((v, i) => v === max ? i : -1).filter(i => i >= 0);
+  return top.length === 1 ? top[0] : -1;
+}
+// 다음 라운드 준비: 횟수·체력·로봇을 처음 상태로 (이긴 라운드 수는 그대로)
+function resetRound() {
+  S.zones.forEach(z => { z.count = 0; z.left = 0; z.right = 0; z.flash = 0; z.tr = K.newTracker(); });
+  if (S.teams) S.teams.forEach(t => { t.energy = S.energyMax; t.flash = 0; });
+  if (S.robot) { S.robot.state = 'idle'; S.robot.hitAt = -1e9; }
+  S.targets = []; S.parts = []; S.bursts = []; S.breaks = []; S.hurtAt = -1e9; S.msgUntil = 0;
+}
 function startGame() {
   if (!landmarker) return;
   audio(); applySettings(); resetZones();
-  S.phase = 'count'; S.countEnd = performance.now() + 3000; S.lastSpoken = -1;
+  const now = performance.now();
+  S.phase = 'intro'; S.introStart = now; S.introEnd = now + 2300; S.lastSpoken = -1;
   $('stopBtn').disabled = false; $('startBtn').disabled = true;
-  beep(660);
+  whoosh(); setTimeout(() => beep(196, 0.5, 0.35, 'sawtooth'), 900);
+  if (COMPETE.includes(S.mode)) say(roundsTotal() > 1 ? `${roundsTotal()}판 ${winsNeed()}선승. 1라운드` : '대결 시작');
+}
+// 한 라운드가 끝남 (시간 끝 / 체력 0)
+function endRound(reason) {
+  if (S.phase !== 'run') return;
+  if (roundsTotal() === 1) return finish(reason);
+  const w = roundWinner(), sd = sides();
+  if (w >= 0) S.wins[w]++;
+  S.history.push({ round:S.round, winner:w, vals:sd.map(sideValue) });
+  S.roundInfo = { w, name: w >= 0 ? sd[w].name : '', color: w >= 0 ? sd[w].color : PAPER, reason };
+  S.phase = 'roundEnd'; S.roundEndUntil = performance.now() + 2800;
+  beep(523, 0.2); setTimeout(() => beep(659, 0.2), 180); setTimeout(() => beep(784, 0.35), 360);
+  say(`${S.round}라운드 ` + (w >= 0 ? `${sd[w].name} 승` : '무승부'));
+}
+// 경기 전체가 끝남 → 최종 우승
+function finishMatch(reason) {
+  S.phase = 'done'; $('stopBtn').disabled = true; $('startBtn').disabled = false;
+  const sd = sides(), max = Math.max(...S.wins), top = S.wins.map((v, i) => v === max ? i : -1).filter(i => i >= 0);
+  const champ = top.length === 1 ? sd[top[0]] : null;
+  const score = sd.map((s, i) => `${s.name} ${S.wins[i]}승`).join(' : ');
+  let big;
+  if (S.mode === 'robot') big = !champ ? '무승부!' : champ === sd[0] ? '최종 승리!' : '검무봇 최종 승리';
+  else big = champ ? `${champ.name}${S.mode === 'team2' ? '팀' : ''} 최종 우승!` : '무승부!';
+  S.end = { big, color: champ ? champ.color : PAPER, sub: `라운드  ${score}` + (S.mode === 'robot' ? `  ·  막기 ${S.rs.block} · 피하기 ${S.rs.dodge} · 반격 ${S.rs.counter}` : '') };
+  const text = `종료! ${big} (${score})`;
+  S.result = text; status(text); showBest();
+  if (reason !== 'stop') { beep(523, 0.25); setTimeout(() => beep(659, 0.25), 220); setTimeout(() => beep(784, 0.25), 440); setTimeout(() => beep(1046, 0.5), 660); say(big.replace('!', '')); }
+  if (rec && rec.state === 'recording') setTimeout(stopRec, 2500);
+}
+function whoosh() {
+  if (!$('sound').checked) return; const a = audio(); if (!a) return;
+  const len = 0.6, buf = a.createBuffer(1, a.sampleRate * len, a.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * i / d.length);
+  const src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+  f.type = 'bandpass'; f.frequency.setValueAtTime(400, a.currentTime); f.frequency.exponentialRampToValueAtTime(3000, a.currentTime + len);
+  g.gain.value = 0.5; src.buffer = buf; src.connect(f); f.connect(g); g.connect(outNode); src.start();
 }
 function finish(reason) {
-  if (S.phase !== 'run' && S.phase !== 'count') return;
+  if (!busy()) return;
+  if (roundsTotal() > 1) return finishMatch(reason);
   S.phase = 'done'; S.timeLeft = Math.max(0, S.timeLeft);
   $('stopBtn').disabled = true; $('startBtn').disabled = false;
   const z = S.zones; let text = '';
@@ -463,7 +560,7 @@ function finish(reason) {
   } else if (S.teams) {
     const [a, b] = S.teams, w = a.energy === b.energy ? null : (a.energy > b.energy ? a : b);
     text = w ? `종료! ${w.name} 승리! (청 ${a.energy} : 홍 ${b.energy})` : `종료! 무승부 (${a.energy} : ${b.energy})`;
-    S.end = { big: w ? `${w.name}팀 승리!` : '무승부!', color: w ? w.color : '#f5efe3', sub: `남은 체력  청 ${a.energy}  ·  홍 ${b.energy}` };
+    S.end = { big: w ? `${w.name}${S.mode === 'team2' ? '팀' : ''} 승리!` : '무승부!', color: w ? w.color : '#f5efe3', sub: `남은 체력  청 ${a.energy}  ·  홍 ${b.energy}` };
   } else {
     const max = Math.max(...z.map(x => x.count)), win = z.filter(x => x.count === max);
     text = '종료! ' + z.map(x => `${x.name} ${x.count}번`).join(' · ') + (win.length > 1 ? ' · 무승부' : ` · ${win[0].name} 승리!`);
@@ -530,7 +627,7 @@ function robotStrike(now, lm, aspect, L) {
   else {
     S.rs.hit++; me.energy = Math.max(0, me.energy - L.dmg); me.flash = now; S.hurtAt = now;
     flashMsg(`아야! −${L.dmg}`, '#ff3b55'); hitSound(true);
-    if (me.energy <= 0) finish('ko');
+    if (me.energy <= 0) endRound('ko');
   }
 }
 
@@ -550,13 +647,13 @@ function onEvent(zi, e, now) {
       if (S.robot) S.robot.hitAt = now;
       if (counter) { S.rs.counter++; flashMsg(`반격 찬스! −${d}`, '#ffd23f'); }
       else if (e.face) flashMsg(`얼굴 공격! −${d}`, z.color);
-      if (opp.energy <= 0) finish('ko');
+      if (opp.energy <= 0) endRound('ko');
     }
   } else if (e.type === 'face' && S.teams) {
     const m = MODES[S.mode], opp = S.teams[1 - m.team[zi]];
     opp.energy = Math.max(0, opp.energy - m.dmg[1]); opp.flash = now; hitSound(true); if (S.robot) S.robot.hitAt = now;
     flashMsg(`얼굴 높이! 추가 −${m.dmg[1]}`, z.color);
-    if (opp.energy <= 0) finish('ko');
+    if (opp.energy <= 0) endRound('ko');
   }
 }
 // "팡!" 효과: 찬 발 위치에서 터짐
@@ -624,6 +721,17 @@ function loop() {
 
   if (S.robot) robotUpdate(now, aspect);
   // 시간 진행
+  if (S.phase === 'intro' && now >= S.introEnd) { S.phase = 'count'; S.countEnd = now + 3000; S.lastSpoken = -1; }
+  if (S.phase === 'roundEnd' && now >= S.roundEndUntil) {
+    const over = Math.max(...S.wins) >= winsNeed() || S.round >= roundsTotal();
+    if (over) finishMatch('end');
+    else { S.phase = 'rest'; S.restEnd = now + S.rest * 1000; S.lastSpoken = -1; }
+  }
+  if (S.phase === 'rest') {
+    const left = Math.ceil((S.restEnd - now) / 1000);
+    if (left <= 3 && left >= 1 && left !== S.lastSpoken) { S.lastSpoken = left; beep(440, 0.1); }
+    if (now >= S.restEnd) { S.round++; resetRound(); S.phase = 'count'; S.countEnd = now + 3000; S.lastSpoken = -1; say(`${S.round}라운드`); }
+  }
   if (S.phase === 'count') {
     const left = Math.ceil((S.countEnd - now) / 1000);
     if (left !== S.lastSpoken && left > 0) { S.lastSpoken = left; if (left < 3) beep(660); }
@@ -636,8 +744,8 @@ function loop() {
     S.timeLeft = Math.max(0, (S.endAt - now) / 1000);
     const sec = Math.ceil(S.timeLeft);
     if (sec <= 10 && sec >= 1 && sec !== S.lastSpoken) { S.lastSpoken = sec; say(KO_NUM[sec]); }
-    if (S.timeLeft <= 0) finish('time');
-  } else if (S.phase === 'idle') S.timeLeft = S.duration;
+    if (S.timeLeft <= 0) endRound('time');
+  } else if (S.phase === 'idle' || S.phase === 'intro' || S.phase === 'count' || S.phase === 'rest') S.timeLeft = S.duration;
 
   // 표적
   const feet = [];
@@ -648,7 +756,7 @@ function loop() {
   S.parts = S.parts.filter(p => p.until > now);
   S.parts.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; });
 
-  if (landmarker && !(rec && rec.state === 'recording') && S.phase !== 'run' && S.phase !== 'count' && S.phase !== 'done') {
+  if (landmarker && !(rec && rec.state === 'recording') && !busy() && S.phase !== 'done') {
     const cnt = S.poses.length;
     status(cnt ? `몸 인식 중 · ${cnt}명` : '몸을 찾는 중 · 전신이 보이게 서 주세요');
   }
@@ -702,18 +810,20 @@ function timerRing(cx, cy, r, now) {
 }
 // 칸 나눈 체력 막대
 function hpBar(x, y, w, h, team, rightToLeft, now) {
-  const seg = 10, gap = w * 0.012, sw = (w - gap * (seg - 1)) / seg, e = team.energy;
+  const seg = 10, gap = w * 0.012, sw = (w - gap * (seg - 1)) / seg, e = team.energy * 100 / (S.energyMax || 100);
   for (let i = 0; i < seg; i++) {
     const idx = rightToLeft ? seg - 1 - i : i, sx = x + idx * (sw + gap);
     ctx.save(); ctx.transform(1, 0, -0.35, 1, 0, 0); ctx.translate(y * 0.35, 0);
     rr(sx, y, sw, h, h * 0.2); ctx.fillStyle = 'rgba(20,18,16,.75)'; ctx.fill();
     const fill = Math.max(0, Math.min(1, (e - i * 10) / 10));
-    if (fill > 0) { rr(sx, y, sw * fill, h, h * 0.2); ctx.fillStyle = now - team.flash < 180 ? '#fff' : team.color; ctx.fill(); }
+    if (fill > 0) { ctx.shadowColor = team.color; ctx.shadowBlur = h * 1.2; rr(sx, y, sw * fill, h, h * 0.2); ctx.fillStyle = now - team.flash < 180 ? '#fff' : team.color; ctx.fill(); ctx.shadowBlur = 0; }
     ctx.restore();
   }
 }
 function guideText() {
-  if (S.phase === 'count') return '준비! 전신이 다 보이게 서세요';
+  if (S.phase === 'intro' || S.phase === 'count') return '준비! 전신이 다 보이게 서세요';
+  if (S.phase === 'roundEnd') return '라운드 종료!';
+  if (S.phase === 'rest') return '쉬는 시간 · 숨 고르기';
   if (S.phase === 'done') return '끝! 다시 하려면 ▶ 시작';
   if (S.phase === 'run') return ({ solo:'허리 위로 차고, 발을 내렸다 다시!', duel2:'자기 자리(왼쪽·오른쪽)를 지켜요', duel3:'자기 칸을 지켜요',
     fight:'닿지 않게! 자기 자리에서 발차기', robot:'❗가 뜨면 두 팔 막기 · 옆으로 피하기 · 숙이기!', team2:'닿지 않게! 자기 칸에서 발차기', target:'날아오는 송판을 발로 격파!' })[S.mode];
@@ -734,7 +844,7 @@ function board(x, y, w, h, rot, part) {   // part: 0 전체, -1 왼쪽 반, 1 �
 function drawRobot(now, W, H, u) {
   const R = S.robot; if (!R || R.x == null) return;
   const L = ROBOT_LV[S.robotLv] || ROBOT_LV[2];
-  const s = R.h * H, f = R.face, X = R.x * W, Y = R.feet * H;
+  const X = R.x * W, Y = R.feet * H, f = R.face, s = Math.max(u * 20, Math.min(R.h * H, (Y - u * 21) / 1.1));   // 점수판 아래로만
   const STEEL = '#cfc8bb', STEEL2 = '#9c9486', DARK = '#2a2723', RED = '#d8263f', EYE = '#5fe0ff';
   // 다리 각도 (허벅지 a1: 아래에서 앞쪽으로, 무릎 접힘 b)
   let a1 = -0.18, b = 0.1, lean = 0;
@@ -880,58 +990,15 @@ function draw(now, aspect, feet) {
     ctx.restore();
   });
 
-  // ── 윗부분: 시계 · 체력 · 방패
-  const R = u * (land ? 8.5 : 7.5), tcx = W / 2, tcy = u * 2.5 + R;
-  timerRing(tcx, tcy, R, now);
-  let shieldY = u * 2.5;
-  if (S.teams) {
-    const bw = Math.min(W * 0.3, tcx - R - u * 6), bh = u * 2.8, by = tcy - bh / 2 + u * 1.5;
-    S.teams.forEach((tm, i) => {
-      const x = i === 0 ? tcx - R - u * 3 - bw : tcx + R + u * 3;
-      ctx.font = `400 ${u * 4}px ${FT}`; ctx.fillStyle = tm.color; ctx.textAlign = i === 0 ? 'right' : 'left';
-      ctx.fillText(S.mode === 'robot' ? tm.name : `${tm.name}팀`, i === 0 ? x + bw : x, by - u * 1.3);
-      ctx.fillStyle = PAPER; ctx.textAlign = i === 0 ? 'left' : 'right'; ctx.font = `400 ${u * 4}px ${FT}`;
-      ctx.fillText(String(tm.energy), i === 0 ? x : x + bw, by - u * 1.3);
-      hpBar(x, by, bw, bh, tm, i === 0, now);
-    });
-    shieldY = tcy + R + u * 2;
-  }
-  const sw = u * (land ? 15 : 14), sh = sw * 1.2;
-  const shieldsFor = () => {
-    if (S.mode === 'target') return [{ cx: u * 3 + sw / 2, l:'격파', v:S.hits, unit:'장', c:'#ff5a6e', f:false }];
-    return S.zones.map((z, i) => {
-      let cx;
-      if (n === 1) cx = u * 3 + sw / 2;
-      else if (n === 2) cx = i === 0 ? u * 3 + sw / 2 : W - u * 3 - sw / 2;
-      else cx = W * (i + 0.5) / n;
-      return { cx, l: n === 1 ? '발차기' : z.name, v:z.count, unit:'번', c:z.color, f: now - z.flash < 140, z };
-    });
-  };
-  const sy = (n >= 3 || S.teams) ? shieldY : u * 2.5;
-  shieldsFor().forEach(s => {
-    shield(s.cx, sy, sw, sh, s.l, String(s.v), s.unit, s.c, s.f);
-    if (s.z && !S.teams) chipText(`왼 ${s.z.left} · 오 ${s.z.right}`, s.cx, sy + sh + u * 1.2, u * 4, PAPER, 'center');
-  });
+  // ── 위쪽: 중계 점수판 띠
+  drawBoard(now, W, H, u, land);
   if (S.mode === 'target' && S.phase === 'idle') centerText('송판이 날아와요! 발로 격파!', u * 6, PAPER, H * 0.5, CRIM);
-
-  // 카운트다운 · 메시지
-  if (S.phase === 'count') {
-    const left = Math.max(1, Math.ceil((S.countEnd - now) / 1000)), k = 1 - ((S.countEnd - now) / 1000 % 1);
-    ctx.save(); ctx.globalAlpha = 0.85; ctx.beginPath(); ctx.arc(W / 2, H * 0.55, u * (18 + k * 6), 0, 6.2832); ctx.lineWidth = u; ctx.strokeStyle = CRIM; ctx.stroke(); ctx.restore();
-    centerText(String(left), u * 26, PAPER, H * 0.55 + u * 9, INK); centerText('준비', u * 6, '#ff6b7d', H * 0.55 - u * 20, INK);
-  }
-  if (now < S.msgUntil) centerText(S.msg, u * 8, '#fff', H * 0.52, S.msgColor);
-
-  // 결과 띠
-  if (S.phase === 'done' && S.end) {
-    const by = H * 0.4, bh = H * 0.24;
-    ctx.save(); ctx.transform(1, -0.06, 0, 1, 0, W * 0.03);
-    ctx.fillStyle = 'rgba(20,18,16,.88)'; ctx.fillRect(0, by, W, bh);
-    ctx.fillStyle = CRIM; ctx.fillRect(0, by, W, u * 1.2); ctx.fillRect(0, by + bh - u * 1.2, W, u * 1.2);
-    ctx.restore();
-    centerText(S.end.big, u * 12, S.end.color, by + bh * 0.55, PAPER);
-    ctx.font = `700 ${u * 4}px ${FN}`; ctx.fillStyle = PAPER; ctx.textAlign = 'center'; ctx.fillText(S.end.sub, W / 2, by + bh * 0.85);
-  }
+  if (now < S.msgUntil && S.phase === 'run') centerText(S.msg, u * 8, '#fff', H * 0.52, S.msgColor);
+  if (S.phase === 'intro') drawIntro(now, W, H, u);
+  if (S.phase === 'count') drawMedal(now, W, H, u);
+  if (S.phase === 'roundEnd') drawRoundEnd(now, W, H, u);
+  if (S.phase === 'rest') drawRest(now, W, H, u);
+  if (S.phase === 'done' && S.end) drawFinal(now, W, H, u);
 
   // 아래: 인식 상태 · 안내 · 이름
   const ch = u * 4.6, cy = H - ch - u * 2.5;
@@ -940,6 +1007,211 @@ function draw(now, aspect, feet) {
   chipText(guideText(), u * 3 + w1 + u * 1.5, cy, ch, PAPER, 'left');
   ctx.font = `400 ${u * 3.2}px ${FT}`; ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(245,239,227,.8)';
   ctx.fillText('검무 킥 챌린지', W - u * 3, H - u * 3.6);
+}
+/* ---------- 🎥 중계 스타일 화면 ---------- */
+const GOLD = '#e8b44a';
+function poly(pts) { ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); }
+function shade(hex, k) {   // 색을 어둡게(k<1)/밝게(k>1)
+  const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255, f = v => Math.max(0, Math.min(255, Math.round(v * k)));
+  return `rgb(${f(r)},${f(g)},${f(b)})`;
+}
+// 점수판에 올릴 칸들
+function boardSides() {
+  if (S.mode === 'solo') return [{ name:'나', sub:'발차기', val:S.zones[0] ? S.zones[0].count : 0, color:'#ff5a6e', flash:S.zones[0] && performance.now() - S.zones[0].flash < 140 },
+                                  { name:'최고', sub:'이 기기 기록', val:getBest(), color:'#5b6170' }];
+  if (S.mode === 'target') return [{ name:'나', sub:'격파', val:S.hits, color:'#ff5a6e' }, { name:`${S.level}단`, sub:'송판 속도', val:getBest(), color:'#5b6170', valSub:'최고' }];
+  const now = performance.now();
+  return sides().map((s, i) => ({ name: s.name + (S.teams && S.mode === 'team2' ? '팀' : ''), sub: S.teams ? '체력' : '발차기', val: S.teams ? s.energy : s.count,
+    color: s.color, flash: now - s.flash < 160, wins: S.wins[i] || 0, team: S.teams ? s : null }));
+}
+function drawBoard(now, W, H, u, land) {
+  const BH = u * (land ? 11.5 : 10), PW = u * (land ? 30 : 27), cx = W / 2;
+  // 바탕 띠
+  let g = ctx.createLinearGradient(0, 0, 0, BH); g.addColorStop(0, '#161c2e'); g.addColorStop(1, '#0a0d16');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, BH);
+  ctx.fillStyle = GOLD; ctx.fillRect(0, BH, W, u * 0.35);
+  // 칸 나누기: 왼쪽에 앞쪽 절반, 오른쪽에 나머지
+  const list = boardSides(), nl = Math.ceil(list.length / 2), left = list.slice(0, nl), right = list.slice(nl);
+  const L0 = 0, L1 = cx - PW / 2 + u * 2, R0 = cx + PW / 2 - u * 2, R1 = W, sl = u * 3.2;
+  const panel = (s, x0, x1, isLeft) => {
+    const pts = isLeft ? [[x0, 0], [x1, 0], [x1 - sl, BH], [x0, BH]] : [[x0 + sl, 0], [x1, 0], [x1, BH], [x0, BH]];
+    const gg = ctx.createLinearGradient(isLeft ? x0 : x1, 0, isLeft ? x1 : x0, 0);
+    gg.addColorStop(0, shade(s.color, 0.35)); gg.addColorStop(1, s.flash ? '#fff' : shade(s.color, 0.95));
+    poly(pts); ctx.fillStyle = gg; ctx.fill();
+    // 사선 무늬
+    ctx.save(); poly(pts); ctx.clip(); ctx.strokeStyle = 'rgba(255,255,255,.07)'; ctx.lineWidth = u * 0.8;
+    for (let x = x0 - BH; x < x1 + BH; x += u * 3) { ctx.beginPath(); ctx.moveTo(x, BH); ctx.lineTo(x + BH, 0); ctx.stroke(); }
+    ctx.restore();
+    // 점수 상자 (시계판 쪽)
+    const bw = Math.min(u * 15, (x1 - x0) * 0.45), bx = isLeft ? x1 - sl - bw - u * 0.5 : x0 + sl + u * 0.5;
+    poly(isLeft ? [[bx + sl * 0.6, u * 1], [bx + bw + sl * 0.4, u * 1], [bx + bw, BH - u * 1], [bx, BH - u * 1]]
+                : [[bx, u * 1], [bx + bw - sl * 0.4, u * 1], [bx + bw - sl * 0.6 + sl * 0.2, BH - u * 1], [bx - sl * 0.4, BH - u * 1]]);
+    ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fill();
+    ctx.save(); ctx.shadowColor = s.color; ctx.shadowBlur = u * 2; ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const vs = String(s.val); ctx.font = `400 ${BH * (vs.length > 2 ? 0.62 : 0.72)}px ${FT}`; ctx.fillText(vs, bx + bw / 2 + (isLeft ? sl * 0.2 : -sl * 0.2), BH * 0.54); ctx.restore();
+    // 이름 (바깥쪽)
+    const nx = isLeft ? x0 + u * 2.5 : x1 - u * 2.5;
+    ctx.textAlign = isLeft ? 'left' : 'right'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = '#fff';
+    ctx.font = `400 ${BH * 0.48}px ${FT}`; ctx.fillText(s.name, nx, BH * 0.58);
+    ctx.font = `700 ${BH * 0.17}px ${FN}`; ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.fillText(s.valSub || s.sub, nx, BH * 0.85);
+    // 이긴 라운드 마름모
+    if (roundsTotal() > 1 && s.wins !== undefined) {
+      for (let k = 0; k < winsNeed(); k++) {
+        const px = isLeft ? x0 + u * 3 + k * u * 3.4 : x1 - u * 3 - k * u * 3.4, py = BH + u * 2.4;
+        ctx.save(); ctx.translate(px, py); ctx.rotate(Math.PI / 4);
+        ctx.fillStyle = k < s.wins ? GOLD : 'rgba(10,13,22,.7)'; ctx.fillRect(-u * 1, -u * 1, u * 2, u * 2);
+        ctx.lineWidth = u * 0.3; ctx.strokeStyle = GOLD; ctx.strokeRect(-u * 1, -u * 1, u * 2, u * 2); ctx.restore();
+      }
+    }
+    // 체력 네온 막대
+    if (s.team) {
+      const hy = BH + u * (roundsTotal() > 1 ? 4.6 : 1.4), hx0 = isLeft ? x0 + u * 2 : x0 + sl, hx1 = isLeft ? x1 - sl : x1 - u * 2;
+      hpBar(hx0, hy, hx1 - hx0, u * 2.6, s.team, isLeft, now);
+    }
+  };
+  const lw = (L1 - L0) / Math.max(1, left.length), rw = (R1 - R0) / Math.max(1, right.length);
+  left.forEach((s, i) => panel(s, L0 + i * lw, L0 + (i + 1) * lw, true));
+  right.forEach((s, i) => panel(s, R0 + i * rw, R0 + (i + 1) * rw, false));
+  // 가운데 시계판 (금테 사다리꼴)
+  const PH = BH + u * 4.5, pts = [[cx - PW / 2, 0], [cx + PW / 2, 0], [cx + PW * 0.4, PH], [cx - PW * 0.4, PH]];
+  ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = u * 2; poly(pts);
+  g = ctx.createLinearGradient(0, 0, 0, PH); g.addColorStop(0, '#1d1f26'); g.addColorStop(1, '#050507'); ctx.fillStyle = g; ctx.fill(); ctx.restore();
+  poly(pts); ctx.lineWidth = u * 0.5; ctx.strokeStyle = GOLD; ctx.stroke();
+  ctx.fillStyle = GOLD; ctx.fillRect(cx - u * 4, PH - u * 0.25, u * 8, u * 0.5);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  const top = COMPETE.includes(S.mode) ? (roundsTotal() > 1 ? `${S.round}R  /  ${roundsTotal()}판 ${winsNeed()}선승` : '단판 승부') : ({ solo:'혼자 도전', target:'송판 격파' })[S.mode];
+  ctx.font = `700 ${u * 2.5}px ${FN}`; ctx.fillStyle = GOLD; ctx.fillText(top, cx, u * 3.6);
+  const shown = S.clock === 'up' ? S.duration - S.timeLeft : S.timeLeft;
+  const urgent = S.phase === 'run' && S.timeLeft <= 10;
+  ctx.font = `400 ${u * 8}px ${FT}`; ctx.fillStyle = urgent && Math.sin(now / 90) > -0.3 ? '#ff5468' : '#fff';
+  ctx.fillText(fmtClock(shown), cx, u * 11.6);
+  ctx.font = `700 ${u * 1.9}px ${FN}`; ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.fillText(S.clock === 'up' ? '▲ 지난 시간' : '▼ 남은 시간', cx, u * 14.4);
+  // 띠 아래 보조 칩
+  const cy0 = BH + u * (S.teams && roundsTotal() > 1 ? 8.6 : S.teams ? 5.4 : roundsTotal() > 1 ? 5 : 1.6);
+  if (S.mode === 'solo' && S.zones[0]) chipText(`왼발 ${S.zones[0].left} · 오른발 ${S.zones[0].right}`, u * 3, cy0, u * 4, PAPER, 'left');
+  if (S.mode === 'team2') S.zones.forEach((z, i) => chipText(`${z.name} ${z.count}번`, W * (i + 0.5) / 4, cy0, u * 3.8, z.color, 'center'));
+}
+// VS 시작 화면: 청·홍 칼이 교차하고 먹물 원이 퍼짐
+function drawIntro(now, W, H, u) {
+  const t = Math.min(1, (now - S.introStart) / (S.introEnd - S.introStart)), cx = W / 2, cy = H * 0.52;
+  const fade = t > 0.85 ? (1 - t) / 0.15 : 1, ease = k => 1 - Math.pow(1 - Math.min(1, Math.max(0, k)), 3);
+  ctx.save(); ctx.globalAlpha = fade;
+  ctx.fillStyle = 'rgba(5,6,10,.72)'; ctx.fillRect(0, 0, W, H);
+  const sd = COMPETE.includes(S.mode) ? sides() : null;
+  const cA = sd ? sd[0].color : '#ff5a6e', cB = sd ? sd[sd.length - 1].color : GOLD;
+  // 칼 두 자루 (왼쪽 아래→가운데, 오른쪽 아래→가운데)
+  const blade = (fromX, col, k) => {
+    const sx = fromX, sy = H * 1.05, ex = sx + (cx - sx) * 1.45 * ease(k), ey = sy + (cy - u * 8 - sy) * 1.45 * ease(k);
+    ctx.save(); ctx.shadowColor = col; ctx.shadowBlur = u * 4; ctx.lineCap = 'round';
+    const lg = ctx.createLinearGradient(sx, sy, ex, ey); lg.addColorStop(0, 'rgba(255,255,255,0)'); lg.addColorStop(0.6, col); lg.addColorStop(1, '#fff');
+    ctx.strokeStyle = lg; ctx.lineWidth = u * 1.6; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke(); ctx.restore();
+  };
+  blade(W * 0.12, cA, t / 0.32); blade(W * 0.88, cB, (t - 0.06) / 0.32);
+  // 먹물 원
+  const k = ease((t - 0.28) / 0.3), R = u * 19 * k;
+  if (k > 0) {
+    for (let i = 0; i < 4; i++) {
+      ctx.beginPath(); ctx.arc(cx, cy, R * (0.92 + i * 0.05), now / 600 + i * 1.7, now / 600 + i * 1.7 + 4.6);
+      ctx.lineWidth = u * (2.6 - i * 0.5); ctx.strokeStyle = i % 2 ? GOLD : '#f5efe3'; ctx.stroke();
+    }
+    // 불꽃
+    for (let i = 0; i < 26; i++) {
+      const a = i * 2.39996, d = R * (1.05 + 0.9 * ease((t - 0.3) / 0.6)) * (0.6 + (i % 5) * 0.12);
+      ctx.fillStyle = i % 3 ? GOLD : '#fff'; ctx.globalAlpha = fade * Math.max(0, 1 - (t - 0.3) / 0.6);
+      ctx.fillRect(cx + Math.cos(a) * d, cy + Math.sin(a) * d, u * 0.7, u * 0.7);
+    }
+    ctx.globalAlpha = fade;
+  }
+  // 글자
+  const pk = ease((t - 0.3) / 0.2), sc = pk < 1 ? 0.4 + pk * 0.75 : 1.15 - 0.15 * ease((t - 0.5) / 0.2);
+  if (pk > 0) {
+    ctx.save(); ctx.translate(cx, cy); ctx.scale(sc, sc);
+    const big = sd ? 'VS' : (S.mode === 'solo' ? '혼자 도전' : '송판 격파');
+    ctx.font = `400 ${u * (sd ? 17 : 11)}px ${FT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+    ctx.lineWidth = u * 1.6; ctx.strokeStyle = '#1a1206'; ctx.strokeText(big, 0, 0);
+    const tg = ctx.createLinearGradient(0, -u * 8, 0, u * 8); tg.addColorStop(0, '#fff6d8'); tg.addColorStop(1, GOLD);
+    ctx.fillStyle = tg; ctx.fillText(big, 0, 0); ctx.restore(); ctx.textBaseline = 'alphabetic';
+  }
+  // 양쪽 이름이 미끄러져 들어옴
+  if (sd) {
+    const nk = ease((t - 0.35) / 0.25);
+    ctx.font = `400 ${u * 10}px ${FT}`; ctx.textAlign = 'center';
+    const nameL = sd.length > 2 ? sd.slice(0, sd.length - 1).map(s => s.name).join('·') : sd[0].name;
+    centerAt(nameL, -W * 0.2 + (W * 0.2 + W * 0.2) * nk, cy + u * 3, u * 10, cA);
+    centerAt(sd[sd.length - 1].name, W * 1.2 - (W * 0.2 + W * 0.2) * nk, cy + u * 3, u * 10, cB);
+  }
+  const lk = ease((t - 0.5) / 0.2);
+  if (lk > 0) {
+    ctx.globalAlpha = fade * lk; ctx.font = `700 ${u * 3.6}px ${FN}`; ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
+    ctx.fillText(sd ? (roundsTotal() > 1 ? `${roundsTotal()}판 ${winsNeed()}선승  ·  ROUND 1` : '단판 승부') : `${fmtDur(S.duration)} 도전`, cx, cy + u * 26);
+    ctx.font = `400 ${u * 2.8}px ${FT}`; ctx.fillStyle = GOLD; ctx.fillText('검무 킥 챌린지', cx, cy - u * 23);
+  }
+  ctx.restore();
+}
+function centerAt(t, x, y, size, color) {
+  ctx.font = `400 ${size}px ${FT}`; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+  ctx.lineWidth = size / 7; ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.strokeText(t, x, y); ctx.fillStyle = color; ctx.fillText(t, x, y);
+}
+function octagon(x, y, r) { const pts = []; for (let i = 0; i < 8; i++) { const a = Math.PI / 8 + i * Math.PI / 4; pts.push([x + Math.cos(a) * r, y + Math.sin(a) * r]); } poly(pts); }
+// 팔각 메달 카운트다운
+function drawMedal(now, W, H, u) {
+  const left = Math.max(1, Math.ceil((S.countEnd - now) / 1000)), frac = ((S.countEnd - now) / 1000) % 1;
+  const pop = 1 + 0.18 * Math.max(0, frac - 0.75) / 0.25, cx = W / 2, cy = H * 0.5, r = u * 15 * pop;
+  ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = u * 3; octagon(cx, cy, r);
+  const g = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.4, r * 0.1, cx, cy, r); g.addColorStop(0, '#3a4256'); g.addColorStop(1, '#0b0e16');
+  ctx.fillStyle = g; ctx.fill(); ctx.restore();
+  octagon(cx, cy, r); ctx.lineWidth = u * 0.9; ctx.strokeStyle = GOLD; ctx.stroke();
+  octagon(cx, cy, r * 0.86); ctx.lineWidth = u * 0.25; ctx.strokeStyle = 'rgba(232,180,74,.6)'; ctx.stroke();
+  // 돌아가는 눈금
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(now / 900);
+  for (let i = 0; i < 24; i++) { ctx.rotate(Math.PI / 12); ctx.fillStyle = i % 3 ? 'rgba(232,180,74,.35)' : GOLD; ctx.fillRect(r * 1.08, -u * 0.25, u * 1.6, u * 0.5); }
+  ctx.restore();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const tg = ctx.createLinearGradient(0, cy - r * 0.6, 0, cy + r * 0.4); tg.addColorStop(0, '#fff3c4'); tg.addColorStop(1, GOLD);
+  ctx.font = `400 ${r * 1.05}px ${FT}`; ctx.fillStyle = tg; ctx.fillText(String(left), cx, cy - r * 0.08);
+  ctx.font = `400 ${r * 0.2}px ${FT}`; ctx.fillStyle = '#fff';
+  ctx.fillText(COMPETE.includes(S.mode) ? `ROUND ${S.round}` : '준비', cx, cy + r * 0.62);
+  ctx.textBaseline = 'alphabetic';
+}
+function ribbon(W, H, u, y, h, colorA, colorB) {
+  ctx.save(); ctx.transform(1, -0.05, 0, 1, 0, W * 0.025);
+  ctx.fillStyle = 'rgba(8,10,16,.9)'; ctx.fillRect(0, y, W, h);
+  const g = ctx.createLinearGradient(0, 0, W, 0); g.addColorStop(0, colorA); g.addColorStop(0.5, GOLD); g.addColorStop(1, colorB);
+  ctx.fillStyle = g; ctx.fillRect(0, y, W, u * 1); ctx.fillRect(0, y + h - u * 1, W, u * 1);
+  ctx.restore();
+}
+function tally() { const sd = sides(); return sd.map((s, i) => `${s.name} ${S.wins[i]}`).join('  :  '); }
+// 라운드 결과 띠
+function drawRoundEnd(now, W, H, u) {
+  const ri = S.roundInfo || {}, sd = sides(), y = H * 0.36, h = H * 0.3;
+  ribbon(W, H, u, y, h, sd[0].color, sd[sd.length - 1].color);
+  ctx.textAlign = 'center';
+  ctx.font = `700 ${u * 3.6}px ${FN}`; ctx.fillStyle = GOLD; ctx.fillText(`${S.round} 라운드 종료${ri.reason === 'ko' ? ' · KO!' : ''}`, W / 2, y + h * 0.24);
+  centerAt(ri.w >= 0 ? `${ri.name} 승!` : '무승부', W / 2, y + h * 0.62, u * 12, ri.w >= 0 ? ri.color : PAPER);
+  ctx.font = `700 ${u * 3.6}px ${FN}`; ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(`이긴 라운드  ${tally()}`, W / 2, y + h * 0.86);
+}
+// 쉬는 시간
+function drawRest(now, W, H, u) {
+  const left = Math.max(0, Math.ceil((S.restEnd - now) / 1000)), cx = W / 2, cy = H * 0.52, w = u * 44, h = u * 30;
+  ctx.fillStyle = 'rgba(5,6,10,.55)'; ctx.fillRect(0, 0, W, H);
+  octagon(cx, cy, w / 2); ctx.fillStyle = 'rgba(11,14,22,.92)'; ctx.fill(); ctx.lineWidth = u * 0.6; ctx.strokeStyle = GOLD; ctx.stroke();
+  ctx.textAlign = 'center';
+  ctx.font = `400 ${u * 4.2}px ${FT}`; ctx.fillStyle = GOLD; ctx.fillText('쉬는 시간', cx, cy - h * 0.32);
+  ctx.font = `400 ${u * 14}px ${FT}`; ctx.fillStyle = '#fff'; ctx.fillText(String(left), cx, cy + u * 4);
+  ctx.font = `700 ${u * 3}px ${FN}`; ctx.fillStyle = '#fff'; ctx.fillText(`다음: ${S.round + 1} 라운드`, cx, cy + h * 0.3);
+  ctx.font = `700 ${u * 2.6}px ${FN}`; ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.fillText(tally(), cx, cy + h * 0.44);
+}
+// 최종 결과
+function drawFinal(now, W, H, u) {
+  const y = H * 0.36, h = H * 0.3, sd = COMPETE.includes(S.mode) ? sides() : null;
+  ribbon(W, H, u, y, h, sd ? sd[0].color : '#ff5a6e', sd ? sd[sd.length - 1].color : '#ff5a6e');
+  // 반짝이
+  for (let i = 0; i < 18; i++) { const a = i * 2.4 + now / 700, d = u * (30 + (i % 4) * 6);
+    ctx.fillStyle = i % 2 ? GOLD : '#fff'; ctx.globalAlpha = 0.5 + 0.5 * Math.sin(now / 200 + i); ctx.fillRect(W / 2 + Math.cos(a) * d * 1.6, y + h / 2 + Math.sin(a) * d * 0.55, u * 0.8, u * 0.8); }
+  ctx.globalAlpha = 1;
+  if (roundsTotal() > 1) { ctx.font = `700 ${u * 3.4}px ${FN}`; ctx.fillStyle = GOLD; ctx.textAlign = 'center'; ctx.fillText('🏆 경기 종료', W / 2, y + h * 0.22); }
+  centerAt(S.end.big, W / 2, y + h * 0.6, u * 11, S.end.color);
+  ctx.font = `700 ${u * 3.4}px ${FN}`; ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(S.end.sub, W / 2, y + h * 0.86);
 }
 function centerText(t, size, color, y, stroke) {
   ctx.font = `400 ${size}px ${FT}`; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
