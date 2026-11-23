@@ -142,6 +142,11 @@
   .srow .sp{background:#7a3dff}
   .srow .sk{background:#e8e0ff;color:#5a4a8a}
   .srow .sk.on{background:#ff4f9a;color:#fff}
+  #vidWrap{background:rgba(40,10,90,.88);z-index:65}
+  .vbox{width:min(96vw,calc((100vh - 110px)*16/9));display:flex;flex-direction:column;align-items:center;gap:12px}
+  .vbox video{width:100%;aspect-ratio:16/9;background:#2a1050;border-radius:22px;border:5px solid #fff;box-shadow:0 0 0 6px rgba(255,255,255,.25),0 0 60px rgba(200,120,255,.6)}
+  .vbtns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  .vbtns .btn{font-size:clamp(15px,2.4vh,22px);padding:9px 20px;border-radius:999px}
   canvas#fx{position:fixed;inset:0;pointer-events:none;z-index:60}
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#fff;color:#5a2d9a;padding:10px 20px;
          border-radius:999px;font-size:18px;z-index:70;opacity:0;transition:opacity .3s;box-shadow:0 6px 20px rgba(0,0,0,.2)}
@@ -194,6 +199,7 @@
     <div class="timer" id="timer">20</div>
     <div class="actions">
       <button class="btn b-pick" id="btnTimer" style="display:none">⏱️ 타이머 시작</button>
+      <button class="btn b-pink" id="btnSong" style="display:none">🎤 응원가 노래방 틀기</button>
       <button class="btn b-green" id="btnDone">미션 성공! 🎉</button>
       <button class="btn b-gray" id="btnClose">닫기</button>
     </div>
@@ -205,7 +211,7 @@
   <div class="editor">
     <h2>✏️ 미션 고치기</h2>
     <p>한 줄에 미션 하나씩 적어 주세요. 맨 앞에 그림글자(이모지)를 넣으면 팝업에 크게 나와요.<br>
-       <b>"20초"</b>처럼 시간이 들어가면 팝업에 타이머 버튼이 자동으로 생겨요.</p>
+       <b>"20초"</b>처럼 시간이 들어가면 팝업에 타이머 버튼이 자동으로 생겨요.<br><b>"응원가"</b>라는 말이 들어간 미션에는 🎤 응원가 노래방 버튼이 생겨요.</p>
     <textarea id="editText"></textarea>
     <div class="actions">
       <button class="btn b-gray" id="btnDefault">기본 미션으로 되돌리기</button>
@@ -223,6 +229,17 @@
     <div class="sfxnow" id="sfxNow"></div>
     <div id="sfxList"></div>
     <div class="actions"><button class="btn b-green" id="btnSfxClose">다 골랐어요 👍</button></div>
+  </div>
+</div>
+<!-- 응원가 노래방 영상 -->
+<div class="overlay" id="vidWrap">
+  <div class="vbox">
+    <video id="vid" playsinline preload="none"></video>
+    <div class="vbtns">
+      <button class="btn b-pick" id="vidPlay">⏸ 잠깐 멈춤</button>
+      <button class="btn b-blue" id="vidBig">⛶ 화면 꽉 채우기</button>
+      <button class="btn b-gray" id="vidClose">✖ 닫기</button>
+    </div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -535,7 +552,7 @@ window.JTAAudio={N,kit,BG,playStep};
     "🥋 낙법 3회","🥋 앞구르기 3회","👊 지르기 30회","🗣️ 기합 크게 3번!","🙆 다리 찢기 스트레칭 20초",
     "🦩 한 발로 서서 10초 버티기","🚀 무릎 높이 들기 20회","🌙 윗몸일으키기 10회","🌉 브릿지 10초 버티기","🤸 스타 점프 10회",
     "🧘 V자 버티기 10초","🐒 원숭이처럼 엎드려 기어가기","🎯 손뼉 치며 팔굽혀펴기 3회 도전","🥷 닌자 자세로 15초 멈춤","🔄 줄넘기 엇갈려뛰기 10회",
-    "🙌 사범님과 하이파이브!","🤝 친구와 가위바위보 3판","😆 친구 1명 웃기기","🎤 우리 도장 구호 크게 외치기","🫡 바른 자세로 인사 3번",
+    "🙌 사범님과 하이파이브!","🤝 친구와 가위바위보 3판","😆 친구 1명 웃기기","🎤 우리 도장 구호 크게 외치기","🎶 검무합기도 응원가 다 같이 부르기!","🫡 바른 자세로 인사 3번",
     "🎁 보너스! 상점 100점","🎁 보너스! 한 번 더 뽑기","🍀 행운! 패스권 1장","👑 오늘의 주인공! 박수 받기","🎉 다 같이 점핑잭 10회"
   ];
   const HINTS = ["모두 함께 큰 소리로 세어 볼까요? 📣","할 수 있다! 끝까지 파이팅! 🔥","바른 자세로 천천히 해 봐요 👍",
@@ -649,6 +666,7 @@ window.JTAAudio={N,kit,BG,playStep};
     timerEl.classList.remove("show","end");
     if(p.sec){ btnTimer.style.display=""; btnTimer.textContent="⏱️ "+p.sec+"초 타이머 시작"; tLeft=p.sec; timerEl.textContent=p.sec; }
     else btnTimer.style.display="none";
+    btnSong.style.display = /응원가/.test(tiles[i].mission) ? "" : "none";
     // 다시 그려서 애니메이션 재시작
     const pop = document.getElementById("pop");
     pop.style.animation="none"; void pop.offsetWidth; pop.style.animation="";
@@ -656,6 +674,32 @@ window.JTAAudio={N,kit,BG,playStep};
     duck(true); playSfx(popSfx); burst(70);
   }
   function closePop(){ stopTimer(); popWrap.classList.remove("show"); current=-1; duck(false); }
+
+  // ===== 응원가 노래방 영상 =====
+  const btnSong=document.getElementById("btnSong"), vidWrap=document.getElementById("vidWrap"), vid=document.getElementById("vid"), vidPlay=document.getElementById("vidPlay");
+  let videoOn=false;
+  function songOpen(){
+    videoOn=true; bgmUpdateLevel(); stopTimer();
+    if(!vid.getAttribute("src")) vid.src="gmh-song.mp4";
+    vid.currentTime=0; vidWrap.classList.add("show"); vidPlay.textContent="⏸ 잠깐 멈춤";
+    const r=vid.play(); if(r&&r.catch) r.catch(()=>{ vidPlay.textContent="▶ 재생"; toast("▶ 재생 버튼을 눌러 주세요"); });
+  }
+  function songClose(){
+    try{ vid.pause(); }catch(e){}
+    try{ if(document.fullscreenElement===vid) document.exitFullscreen(); }catch(e){}
+    vidWrap.classList.remove("show"); videoOn=false; bgmUpdateLevel();
+  }
+  btnSong.addEventListener("click",songOpen);
+  document.getElementById("vidClose").addEventListener("click",songClose);
+  vidPlay.addEventListener("click",()=>{
+    if(vid.paused){ const r=vid.play(); if(r&&r.catch) r.catch(()=>{}); vidPlay.textContent="⏸ 잠깐 멈춤"; }
+    else { vid.pause(); vidPlay.textContent="▶ 계속 재생"; }
+  });
+  document.getElementById("vidBig").addEventListener("click",()=>{
+    try{ const f=vid.requestFullscreen||vid.webkitRequestFullscreen||vid.webkitEnterFullscreen; const r=f&&f.call(vid); if(r&&r.catch) r.catch(()=>toast("이 화면에서는 꽉 채우기가 안 돼요")); }catch(e){ toast("이 화면에서는 꽉 채우기가 안 돼요"); }
+  });
+  vid.addEventListener("ended",()=>{ songClose(); burst(200); toast("🎉 다 같이 잘 불렀어요! '미션 성공'을 눌러 주세요"); });
+  vid.addEventListener("error",()=>{ if(vidWrap.classList.contains("show")){ songClose(); toast("응원가 영상을 불러오지 못했어요. 인터넷 연결을 확인해 주세요"); } });
   function stopTimer(){ if(tHandle){clearInterval(tHandle); tHandle=null;} }
 
   btnTimer.addEventListener("click",()=>{
@@ -763,7 +807,7 @@ window.JTAAudio={N,kit,BG,playStep};
   });
 
   document.addEventListener("keydown",e=>{
-    if(e.key==="Escape"){ closePop(); editWrap.classList.remove("show"); document.getElementById("sfxWrap").classList.remove("show"); }
+    if(e.key==="Escape"){ if(vidWrap.classList.contains("show")){ songClose(); return; } closePop(); editWrap.classList.remove("show"); document.getElementById("sfxWrap").classList.remove("show"); }
   });
 
   function toast(msg){
@@ -832,7 +876,7 @@ window.JTAAudio={N,kit,BG,playStep};
   selBgm.innerHTML='<option value="-1">🎵 배경음악 끄기</option>'+BG.map((b,i)=>'<option value="'+i+'">🎵 '+(i+1)+'. '+b.name+'</option>').join("");
   selBgm.value=String(bgmIdx); volEl.value=bgmVol;
   function saveBgm(){ try{ localStorage.setItem("jta-bgm",JSON.stringify({idx:bgmIdx,vol:bgmVol})); }catch(e){} }
-  function bgmLevel(){ if(bgmIdx<0) return 0; return (bgmVol/100)*0.9*BG[bgmIdx].vol*(ducked?0.2:1); }
+  function bgmLevel(){ if(bgmIdx<0||videoOn) return 0; return (bgmVol/100)*0.9*BG[bgmIdx].vol*(ducked?0.2:1); }
   function bgmStop(){
     if(!bgm) return; clearInterval(bgm.timer);
     const g=bgm.gain; try{ g.gain.setTargetAtTime(0.0001,ac.currentTime,0.08); }catch(e){}
