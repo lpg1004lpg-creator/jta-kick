@@ -216,6 +216,10 @@
     <div class="chips" id="senseChips">
       <button class="chip" data-v="1">보통</button><button class="chip" data-v="2">빠르게 (추천)</button><button class="chip" data-v="3">아주 빠르게</button>
     </div>
+    <div class="sub2">인식기 (화면 왼쪽 아래 "초당 OO회"가 15 이상이면 정확을 써 보세요)</div>
+    <div class="chips" id="modelChips">
+      <button class="chip" data-v="lite">빠름</button><button class="chip" data-v="full">정확</button>
+    </div>
   </div>
 
   <div class="stage" id="stage">
@@ -262,11 +266,11 @@
   var VIS = 0.45;           // 몸통(엉덩이·어깨)은 이 정도 이상 보여야 믿음
   // 발차기 인식 단계: 1 보통 / 2 빠르게 / 3 아주 빠르게
   //  up: 발이 엉덩이보다 다리길이의 몇 %까지 올라오면 인정 / down: 이만큼 내려와야 다음 발차기
-  //  confirm: 몇 장면 연속 / gap: 같은 발 최소 간격(ms) / fvis: 흐린 발도 믿는 정도 / knee: 무릎만 올라와도 인정(발이 흐릴 때)
+  //  confirm: 몇 장면 연속 / gap: 발차기 사이 최소 간격(ms) / fvis: 흐린 발도 믿는 정도 / knee: 무릎만 올라와도 인정(발이 흐릴 때)
   var LEVELS = {
     1: { up:0.12, down:0.50, confirm:2, gap:250, fvis:0.45, knee:null },
-    2: { up:0.20, down:0.42, confirm:1, gap:170, fvis:0.25, knee:0.12 },
-    3: { up:0.28, down:0.38, confirm:1, gap:130, fvis:0.15, knee:0.22 },
+    2: { up:0.20, down:0.42, confirm:1, gap:110, fvis:0.25, knee:0.12 },
+    3: { up:0.28, down:0.38, confirm:1, gap:90, fvis:0.15, knee:0.22 },
   };
   var T = LEVELS[2];
 
@@ -277,48 +281,71 @@
     return Math.sqrt(dx * dx + dy * dy);
   }
   function newLeg() { return { up:false, cand:0, face:false, last:-1e9 }; }
-  function newTracker() { return { L:newLeg(), R:newLeg(), legLen:0 }; }
+  function newTracker() { return { L:newLeg(), R:newLeg(), legLen:0, up:false, cand:0, face:false, last:-1e9, side:'R', rest:null }; }
+
+  // 한쪽 다리의 발(발목·발끝 중 높은 점)과 무릎
+  function legInfo(lm, ia, ifo, ik) {
+    var pts = [lm[ia], lm[ifo]].filter(visF), top = null;
+    for (var k = 0; k < pts.length; k++) if (!top || pts[k].y < top.y) top = pts[k];
+    var kn = lm[ik];
+    return { y: top ? top.y : null, x: top ? top.x : null, kn: kn && (kn.visibility === undefined || kn.visibility >= 0.3) ? kn : null };
+  }
 
   // lm: 33개 좌표(이미 좌우반전 처리됨), aspect: 화면 가로/세로 비율
-  // 반환: [{side:'L'|'R', type:'kick'|'face'}] 이번 프레임에 생긴 일
+  // 한 사람의 발차기를 "한 개의 상태"로 셈: 어느 발이든 올라가면 1번, 두 발이 다 내려와야 다음 1번
+  //  → 인식기가 왼발·오른발 이름을 뒤바꿔도 두 번 세지 않음
+  // 반환: [{side:'L'|'R', type:'kick'|'face', face, x, y}]
   function step(tr, lm, aspect, now) {
     var ev = [];
     if (!lm || !vis(lm[P.LHIP]) || !vis(lm[P.RHIP])) return ev;
     var hipY = (lm[P.LHIP].y + lm[P.RHIP].y) / 2;
-    // 다리 길이(엉덩이-무릎 + 무릎-발목), 서서히 갱신 (서 있을 때 기준)
     var lens = [];
     if (vis(lm[P.LKNEE]) && vis(lm[P.LANK])) lens.push(dist(lm[P.LHIP], lm[P.LKNEE], aspect) + dist(lm[P.LKNEE], lm[P.LANK], aspect));
     if (vis(lm[P.RKNEE]) && vis(lm[P.RANK])) lens.push(dist(lm[P.RHIP], lm[P.RKNEE], aspect) + dist(lm[P.RKNEE], lm[P.RANK], aspect));
     if (lens.length) {
-      var L = Math.max.apply(null, lens);
-      tr.legLen = tr.legLen ? (L > tr.legLen ? tr.legLen * 0.7 + L * 0.3 : tr.legLen * 0.98 + L * 0.02) : L;
+      var Lmax = Math.max.apply(null, lens);
+      tr.legLen = tr.legLen ? (Lmax > tr.legLen ? tr.legLen * 0.7 + Lmax * 0.3 : tr.legLen * 0.98 + Lmax * 0.02) : Lmax;
     }
     if (!tr.legLen) return ev;
-    var shY = (vis(lm[P.LSH]) && vis(lm[P.RSH])) ? (lm[P.LSH].y + lm[P.RSH].y) / 2 : hipY - tr.legLen * 0.6;
-    var upY = hipY + tr.legLen * T.up;
-    var downY = hipY + tr.legLen * T.down;
-    var sides = [['L', P.LANK, P.LFOOT, P.LKNEE], ['R', P.RANK, P.RFOOT, P.RKNEE]];
-    for (var i = 0; i < 2; i++) {
-      var s = sides[i][0], leg = tr[s];
-      var a = lm[sides[i][1]], f = lm[sides[i][2]], kn = lm[sides[i][3]];
-      var pts = [a, f].filter(visF);
-      var y = pts.length ? Math.min.apply(null, pts.map(function (p) { return p.y; })) : null; // 발끝/발목 중 높은 쪽
-      var kneeOk = kn && (kn.visibility === undefined || kn.visibility >= 0.3);
-      var kneeHigh = T.knee !== null && kneeOk && kn.y < hipY + tr.legLen * T.knee;   // 빠른 발차기: 발이 흐려도 무릎이 높으면 인정
-      var high = (y !== null && y < upY) || kneeHigh;
-      if (!leg.up) {
-        if (high) {
-          leg.cand++;
-          if (leg.cand >= T.confirm && now - leg.last >= T.gap) {
-            leg.up = true; leg.cand = 0; leg.last = now; leg.face = y !== null && y < shY;
-            ev.push({ side:s, type:'kick', face:leg.face });
+    var LL = tr.legLen;
+    var shY = (vis(lm[P.LSH]) && vis(lm[P.RSH])) ? (lm[P.LSH].y + lm[P.RSH].y) / 2 : hipY - LL * 0.6;
+    var upY = hipY + LL * T.up, downY = hipY + LL * T.down;
+    var A = legInfo(lm, P.LANK, P.LFOOT, P.LKNEE), B = legInfo(lm, P.RANK, P.RFOOT, P.RKNEE);
+
+    // 두 발이 다 바닥 근처일 때 "서 있는 발 위치"를 기억 (왼발·오른발 판단용)
+    if (!tr.up && A.y !== null && B.y !== null && A.y > downY && B.y > downY) tr.rest = { L:{ x:A.x, y:A.y }, R:{ x:B.x, y:B.y } };
+
+    // 차는 발: 허리선 위 + 디딤발보다 확실히 높음 (앉거나 점프할 때 잘못 세지 않게)
+    function isHigh(a, b) {
+      var foot = a.y !== null && a.y < upY && (b.y === null || b.y - a.y > LL * 0.35);
+      var knee = T.knee !== null && a.kn && a.kn.y < hipY + LL * T.knee && (!b.kn || b.kn.y - a.kn.y > LL * 0.22) && (b.y === null || a.y === null || b.y - a.y > LL * 0.15);
+      return foot || knee;
+    }
+    var hA = isHigh(A, B), hB = isHigh(B, A), high = hA || hB;
+    var topY = Math.min(A.y === null ? 9 : A.y, B.y === null ? 9 : B.y);
+
+    if (!tr.up) {
+      if (high) {
+        tr.cand++;
+        if (tr.cand >= T.confirm && now - tr.last >= T.gap) {
+          // 어느 발로 찼나: 제자리에 남은 발(디딤발)의 반대쪽
+          var side = hA && !hB ? 'L' : hB && !hA ? 'R' : (A.y !== null && (B.y === null || A.y < B.y) ? 'L' : 'R');
+          var kick = side === 'L' ? A : B, stand = side === 'L' ? B : A;
+          if (tr.rest && stand.y !== null) {
+            var dL = Math.abs(stand.x - tr.rest.L.x), dR = Math.abs(stand.x - tr.rest.R.x);
+            if (Math.abs(dL - dR) > 0.01) side = dL < dR ? 'R' : 'L';   // 디딤발이 원래 왼발 자리면 → 오른발로 찬 것
           }
-        } else leg.cand = 0;
-      } else {
-        if (!leg.face && y !== null && y < shY) { leg.face = true; ev.push({ side:s, type:'face' }); }
-        var down = y !== null ? y > downY : (kneeOk && kn.y > hipY + tr.legLen * 0.38);
-        if (down && !kneeHigh) { leg.up = false; leg.cand = 0; leg.face = false; }
-      }
+          tr.up = true; tr.cand = 0; tr.last = now; tr.side = side;
+          tr.face = topY < shY;
+          var kp = kick.y !== null ? kick : (kick.kn || {});
+          ev.push({ side:side, type:'kick', face:tr.face, x:kp.x, y:kp.y });
+        }
+      } else tr.cand = 0;
+    } else {
+      if (!tr.face && topY < shY) { tr.face = true; ev.push({ side:tr.side, type:'face' }); }
+      // 두 발이 다 내려와야 다음 발차기 (발이 안 보이면 무릎으로 판단)
+      var low = function (a) { return a.y !== null ? a.y > downY : (a.kn ? a.kn.y > hipY + LL * 0.38 : true); };
+      if (!hA && !hB && low(A) && low(B) && (A.y !== null || B.y !== null || A.kn || B.kn)) { tr.up = false; tr.cand = 0; tr.face = false; }
     }
     return ev;
   }
@@ -486,6 +513,7 @@ document.querySelectorAll('#senseChips [data-v]').forEach(b => b.addEventListene
   markOn();
   status(({ 1:'발차기 인식: 보통 — 허리 높이까지 확실히 올라와야 세요', 2:'발차기 인식: 빠르게 — 빠른 발차기도 잘 세요 (추천)', 3:'발차기 인식: 아주 빠르게 — 조금만 올라와도 세요 (너무 많이 세지면 한 단계 낮추세요)' })[K.level]);
 }));
+document.querySelectorAll('#modelChips [data-v]').forEach(b => b.addEventListener('click', () => switchModel(b.dataset.v)));
 function setOrient(o) { if (busy()) return; S.orient = o; try { localStorage.setItem('jtaOrient', o); } catch (e) {} markOn(); status(o === 'portrait' ? '세로 화면: 시작하면 세로 전체화면으로 바뀌어요' : '가로 화면: 시작하면 가로 전체화면으로 바뀌어요'); }
 $('orientV').addEventListener('click', () => setOrient('portrait'));
 $('orientH').addEventListener('click', () => setOrient('landscape'));
@@ -513,7 +541,7 @@ function markOn() {
   $('orientV').classList.toggle('on', S.orient === 'portrait'); $('orientH').classList.toggle('on', S.orient === 'landscape');
   $('camFront').classList.toggle('on', !!stream && S.facing === 'user'); $('camBack').classList.toggle('on', !!stream && S.facing === 'environment');
   document.querySelectorAll('#nameBox input').forEach(i => { i.disabled = busy(); });
-  mark('senseChips', K.level);
+  mark('senseChips', K.level); mark('modelChips', modelKind);
 }
 
 /* ---------- 최고 기록 ---------- */
@@ -568,12 +596,25 @@ async function loadModel() {
   const { PoseLandmarker, FilesetResolver } = await import(MP_URL);
   const files = await FilesetResolver.forVisionTasks(MP_URL + '/wasm');
   const opts = (delegate) => ({
-    baseOptions:{ modelAssetPath:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task', delegate },
-    runningMode:'VIDEO', numPoses:4, minPoseDetectionConfidence:0.5, minPosePresenceConfidence:0.5, minTrackingConfidence:0.5,
+    baseOptions:{ modelAssetPath:`https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_${modelKind}/float16/1/pose_landmarker_${modelKind}.task`, delegate },
+    runningMode:'VIDEO', numPoses:Math.max(1, Math.min(4, nZones())), minPoseDetectionConfidence:0.5, minPosePresenceConfidence:0.5, minTrackingConfidence:0.5,
   });
   try { landmarker = await PoseLandmarker.createFromOptions(files, opts('GPU')); }
   catch (e) { landmarker = await PoseLandmarker.createFromOptions(files, opts('CPU')); }
-  loading = false; setPoseCount();
+  poseN = Math.max(1, Math.min(4, nZones())); loading = false; setPoseCount();
+}
+// 인식기 종류: lite(빠름) / full(정확) — 기기에 기억
+let modelKind = 'lite';
+try { modelKind = localStorage.getItem('jtaModel') === 'full' ? 'full' : 'lite'; } catch (e) {}
+async function switchModel(kind) {
+  if (kind === modelKind || busy() || loading) return;
+  modelKind = kind; try { localStorage.setItem('jtaModel', kind); } catch (e) {}
+  markOn();
+  if (!landmarker) return;
+  const old = landmarker; landmarker = null;
+  try { old.close && old.close(); } catch (e) {}
+  try { await loadModel(); status(kind === 'full' ? '정확 인식기로 바꿨어요 · "초당 OO회"가 10보다 낮으면 빠름으로 돌려 주세요' : '빠름 인식기로 바꿨어요'); }
+  catch (e) { loading = false; status('인식기를 받지 못했어요. 인터넷을 확인해 주세요.', true); }
 }
 
 // 찾을 사람 수를 종목 인원에 맞춤 (혼자 하는 종목은 1명만 찾아서 더 빠르게)
@@ -589,7 +630,7 @@ async function startCam(facing) {
   try {
     if (stream) stream.getTracks().forEach(t => t.stop());
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('nocam');
-    stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:facing, width:{ ideal:1280 }, height:{ ideal:720 } }, audio:false });
+    stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:facing, width:{ ideal:1280 }, height:{ ideal:720 }, frameRate:{ ideal:60 } }, audio:false });
     video.srcObject = stream; await video.play();
     S.facing = facing; S.mirror = loadMirror(facing); showMirror();
     $('ph').style.display = 'none';
@@ -816,9 +857,8 @@ function onEvent(zi, e, now) {
 // "팡!" 효과: 찬 발 위치에서 터짐
 function addBurst(z, e, now) {
   const lm = z.lm; if (!lm) return;
-  const idx = e.side === 'L' ? [27, 31] : [28, 32];
-  const pts = idx.map(i => lm[i]).filter(K.vis); if (!pts.length) return;
-  const p = pts.reduce((a, b) => (a.y < b.y ? a : b));
+  let p = (e.x != null && e.y != null) ? { x:e.x, y:e.y } : null;
+  if (!p) { const pts = [27, 28, 31, 32].map(i => lm[i]).filter(K.vis); if (!pts.length) return; p = pts.reduce((a, b) => (a.y < b.y ? a : b)); }
   const big = e.face || e.type === 'face';
   S.bursts.push({ x:p.x, y:p.y, color:z.color, text: big ? '명중!' : '얍!', big, born:now, rot:(Math.random() - 0.5) * 0.5 });
   for (let i = 0; i < 10; i++) { const a = Math.random() * 6.28, v = 0.15 + Math.random() * 0.35;
@@ -900,7 +940,7 @@ function loop() {
     if (now >= S.countEnd) { S.phase = 'run'; S.endAt = now + S.duration * 1000; S.nextSpawn = now + 500; S.lastSpoken = -1; beep(1046, 0.45, 0.4); flashMsg('시작!', '#ff5a6e');
       say(roundsTotal() > 1 ? `${S.round}라운드, 경기 시작!` : '경기 시작!');
       // 준비 중 올라가 있던 발은 내려야 다시 세도록
-      S.zones.forEach((z, zi) => { z.tr.L.up = z.tr.R.up = true; z.nextSpawn = now + 500 + zi * 350; });
+      S.zones.forEach((z, zi) => { z.tr.L.up = z.tr.R.up = z.tr.up = true; z.nextSpawn = now + 500 + zi * 350; });
       if (S.robot) { S.robot.state = 'idle'; S.robot.next = now + 2200; } }
   }
   if (S.phase === 'run') {
